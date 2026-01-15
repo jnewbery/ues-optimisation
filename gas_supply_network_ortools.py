@@ -1,9 +1,6 @@
-"""OR-Tools translation of the AIMMS Main_GasSupplyNetwork model.
+"""OR-Tools translation of the AIMMS gas supply network model.
 
-The AIMMS model is defined in files/gas_supply_network.txt. The data in
-files/BaseCase.data is a binary AIMMS case file, which this script does not
-attempt to parse. Instead, provide a JSON input with the structure described
-in load_data_from_json().
+The data in `files/base_case.json` can be used to run this model.
 """
 
 from __future__ import annotations
@@ -12,7 +9,7 @@ from dataclasses import dataclass
 import json
 from math import hypot
 from pathlib import Path
-from typing import Dict, Iterable, Sequence
+from typing import Sequence
 
 from ortools.linear_solver import pywraplp
 
@@ -21,10 +18,10 @@ from ortools.linear_solver import pywraplp
 class GasNetworkData:
     cells: Sequence[str]
     ship_accessible_cells: Sequence[str]
-    x_coord: Dict[str, float]
-    y_coord: Dict[str, float]
-    supply: Dict[str, float]
-    population: Dict[str, float]
+    x_coord: dict[str, float]
+    y_coord: dict[str, float]
+    supply: dict[str, float]
+    population: dict[str, float]
     demand_per_person: float = 2.0
     cost_pipe: float = 1_000_000.0
     max_flow: float = 22_000_000.0
@@ -109,16 +106,12 @@ def solve_model(data: GasNetworkData) -> dict[str, object]:
     return result
 
 
-def main(argv: Iterable[str]) -> int:
-    args = list(argv)
-    if len(args) < 2:
-        raise SystemExit("Usage: python gas_supply_network_ortools.py <data.json>")
-    data_path = Path(args[1])
-    data = load_data_from_json(data_path)
+def main() -> int:
+    data = load_data_from_json(Path("files/base_case.json"))
     result = solve_model(data)
     print(json.dumps(result, indent=2))
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(__import__("sys").argv))
+    raise SystemExit(main())
