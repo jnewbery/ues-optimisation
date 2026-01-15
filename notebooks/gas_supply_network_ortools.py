@@ -34,13 +34,16 @@ def _():
 @app.cell
 def _(Path, Sequence, dataclass, json):
     @dataclass(frozen=True)
+    class CellData:
+        x_coord: float
+        y_coord: float
+        supply: float = 0.0
+        population: float = 0.0
+        ship_accessible: bool = False
+
+    @dataclass(frozen=True)
     class GasNetworkData:
-        cells: Sequence[str]
-        ship_accessible_cells: Sequence[str]
-        x_coord: dict[str, float]
-        y_coord: dict[str, float]
-        supply: dict[str, float]
-        population: dict[str, float]
+        cells: dict[str, CellData]
         demand_per_person: float = 2.0
         cost_pipe: float = 1_000_000.0
         max_flow: float = 22_000_000.0
@@ -50,31 +53,40 @@ def _(Path, Sequence, dataclass, json):
 
         Expected JSON structure:
         {
-          "cells": ["c1", "c2", ...],
-          "ship_accessible_cells": ["c1", ...],
-          "x_coord": {"c1": 0.0, "c2": 1.2, ...},
-          "y_coord": {"c1": 0.0, "c2": 2.1, ...},
-          "supply": {"c1": 100.0, ...},
-          "population": {"c1": 50.0, ...},
+          "cells": {
+            "c1": {
+              "x_coord": 0.0,
+              "y_coord": 0.0,
+              "supply": 100.0,
+              "population": 50.0,
+              "ship_accessible": true
+            },
+            ...
+          },
           "demand_per_person": 2.0,
           "cost_pipe": 1000000.0,
           "max_flow": 22000000.0
         }
         """
         raw = json.loads(path.read_text())
+        cells = {
+            name: CellData(
+                x_coord=values["x_coord"],
+                y_coord=values["y_coord"],
+                supply=float(values.get("supply", 0.0)),
+                population=float(values.get("population", 0.0)),
+                ship_accessible=bool(values.get("ship_accessible", False)),
+            )
+            for name, values in raw["cells"].items()
+        }
         return GasNetworkData(
-            cells=raw["cells"],
-            ship_accessible_cells=raw.get("ship_accessible_cells", []),
-            x_coord=raw["x_coord"],
-            y_coord=raw["y_coord"],
-            supply=raw.get("supply", {}),
-            population=raw.get("population", {}),
+            cells=cells,
             demand_per_person=float(raw.get("demand_per_person", 2.0)),
             cost_pipe=float(raw.get("cost_pipe", 1_000_000.0)),
             max_flow=float(raw.get("max_flow", 22_000_000.0)),
         )
 
-    return GasNetworkData, load_data_from_json
+    return CellData, GasNetworkData, load_data_from_json
 
 
 @app.cell
@@ -98,8 +110,8 @@ def _(GasNetworkData, hypot, pywraplp):
         objective_terms = []
         for i, j in pairs:
             distance = hypot(
-                data.x_coord[i] - data.x_coord[j],
-                data.y_coord[i] - data.y_coord[j],
+                data.cells[i].x_coord - data.cells[j].x_coord,
+                data.cells[i].y_coord - data.cells[j].y_coord,
             )
             objective_terms.append(pipe_binary[(i, j)] * data.cost_pipe * distance)
         solver.Minimize(solver.Sum(objective_terms))
@@ -110,8 +122,8 @@ def _(GasNetworkData, hypot, pywraplp):
         for i in cells:
             inflow = solver.Sum(flow[(j, i)] for j in cells if j != i)
             outflow = solver.Sum(flow[(i, j)] for j in cells if j != i)
-            supply = data.supply.get(i, 0.0)
-            demand = data.population.get(i, 0.0) * data.demand_per_person
+            supply = data.cells[i].supply
+            demand = data.cells[i].population * data.demand_per_person
             solver.Add(inflow - outflow + supply - demand >= 0)
 
         status = solver.Solve()
@@ -156,8 +168,8 @@ def _(Image, ImageDraw, ImageFont):
         background = (240, 248, 255)
         text_color = (25, 35, 45)
 
-        unique_x = sorted({data.x_coord[cell] for cell in data.cells})
-        unique_y = sorted({data.y_coord[cell] for cell in data.cells})
+        unique_x = sorted({data.cells[cell].x_coord for cell in data.cells})
+        unique_y = sorted({data.cells[cell].y_coord for cell in data.cells})
         min_step_x = min(
             (b - a for a, b in zip(unique_x, unique_x[1:]) if b > a),
             default=1.0,
@@ -185,8 +197,8 @@ def _(Image, ImageDraw, ImageFont):
 
         positions = {}
         for cell in data.cells:
-            x = (data.x_coord[cell] - min_x) / base_step * spacing + padding
-            y = (max_y - data.y_coord[cell]) / base_step * spacing + padding
+            x = (data.cells[cell].x_coord - min_x) / base_step * spacing + padding
+            y = (max_y - data.cells[cell].y_coord) / base_step * spacing + padding
             positions[cell] = (x + cell_size / 2, y + cell_size / 2)
 
         for i, j in result["pipe_binary"]:
@@ -221,14 +233,14 @@ def _(Image, ImageDraw, ImageFont):
             draw.polygon([left, (ex, ey), right], fill=pipeline_color)
 
         for cell in data.cells:
-            x = (data.x_coord[cell] - min_x) / base_step * spacing + padding
-            y = (max_y - data.y_coord[cell]) / base_step * spacing + padding
+            x = (data.cells[cell].x_coord - min_x) / base_step * spacing + padding
+            y = (max_y - data.cells[cell].y_coord) / base_step * spacing + padding
             rect = (x, y, x + cell_size, y + cell_size)
             radius = 12
             draw.rounded_rectangle(
                 rect, radius=radius, fill=cell_color, outline=cell_border, width=3
             )
-            if cell in data.ship_accessible_cells:
+            if data.cells[cell].ship_accessible:
                 draw.rounded_rectangle(
                     rect, radius=radius, outline=ship_border, width=3
                 )
