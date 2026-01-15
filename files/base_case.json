@@ -1,69 +1,103 @@
 {
-  "cells": ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11", "c12", "c13", "c14"],
-  "ship_accessible_cells": ["c1", "c2", "c3", "c4", "c5", "c6", "c8", "c9", "c11", "c12", "c13", "c14"],
-  "x_coord": {
-    "c1": 0.0,
-    "c2": 50.0,
-    "c3": 100.0,
-    "c4": 150.0,
-    "c5": 200.0,
-    "c6": 100.0,
-    "c7": 150.0,
-    "c8": 200.0,
-    "c9": 100.0,
-    "c10": 150.0,
-    "c11": 200.0,
-    "c12": 150.0,
-    "c13": 200.0,
-    "c14": 250.0
-  },
-  "y_coord": {
-    "c1": 0.0,
-    "c2": 0.0,
-    "c3": 0.0,
-    "c4": 0.0,
-    "c5": 0.0,
-    "c6": 50.0,
-    "c7": 50.0,
-    "c8": 50.0,
-    "c9": 100.0,
-    "c10": 100.0,
-    "c11": 100.0,
-    "c12": 150.0,
-    "c13": 150.0,
-    "c14": 150.0
-  },
-  "supply": {
-    "c1": 22000000.0,
-    "c2": 0.0,
-    "c3": 0.0,
-    "c4": 0.0,
-    "c5": 0.0,
-    "c6": 0.0,
-    "c7": 0.0,
-    "c8": 0.0,
-    "c9": 0.0,
-    "c10": 0.0,
-    "c11": 0.0,
-    "c12": 0.0,
-    "c13": 0.0,
-    "c14": 0.0
-  },
-  "population": {
-    "c1": 850000.0,
-    "c2": 620000.0,
-    "c3": 650000.0,
-    "c4": 940000.0,
-    "c5": 500000.0,
-    "c6": 710000.0,
-    "c7": 940000.0,
-    "c8": 960000.0,
-    "c9": 820000.0,
-    "c10": 500000.0,
-    "c11": 980000.0,
-    "c12": 340000.0,
-    "c13": 210000.0,
-    "c14": 240000.0
+  "cells": {
+    "c1": {
+      "x_coord": 0.0,
+      "y_coord": 0.0,
+      "supply": 22000000.0,
+      "population": 850000.0,
+      "ship_accessible": true
+    },
+    "c2": {
+      "x_coord": 50.0,
+      "y_coord": 0.0,
+      "supply": 0.0,
+      "population": 620000.0,
+      "ship_accessible": true
+    },
+    "c3": {
+      "x_coord": 100.0,
+      "y_coord": 0.0,
+      "supply": 0.0,
+      "population": 650000.0,
+      "ship_accessible": true
+    },
+    "c4": {
+      "x_coord": 150.0,
+      "y_coord": 0.0,
+      "supply": 0.0,
+      "population": 940000.0,
+      "ship_accessible": true
+    },
+    "c5": {
+      "x_coord": 200.0,
+      "y_coord": 0.0,
+      "supply": 0.0,
+      "population": 500000.0,
+      "ship_accessible": true
+    },
+    "c6": {
+      "x_coord": 100.0,
+      "y_coord": 50.0,
+      "supply": 0.0,
+      "population": 710000.0,
+      "ship_accessible": true
+    },
+    "c7": {
+      "x_coord": 150.0,
+      "y_coord": 50.0,
+      "supply": 0.0,
+      "population": 940000.0,
+      "ship_accessible": false
+    },
+    "c8": {
+      "x_coord": 200.0,
+      "y_coord": 50.0,
+      "supply": 0.0,
+      "population": 960000.0,
+      "ship_accessible": true
+    },
+    "c9": {
+      "x_coord": 100.0,
+      "y_coord": 100.0,
+      "supply": 0.0,
+      "population": 820000.0,
+      "ship_accessible": true
+    },
+    "c10": {
+      "x_coord": 150.0,
+      "y_coord": 100.0,
+      "supply": 0.0,
+      "population": 500000.0,
+      "ship_accessible": false
+    },
+    "c11": {
+      "x_coord": 200.0,
+      "y_coord": 100.0,
+      "supply": 0.0,
+      "population": 980000.0,
+      "ship_accessible": true
+    },
+    "c12": {
+      "x_coord": 150.0,
+      "y_coord": 150.0,
+      "supply": 0.0,
+      "population": 340000.0,
+      "ship_accessible": true
+    },
+    "c13": {
+      "x_coord": 200.0,
+      "y_coord": 150.0,
+      "supply": 0.0,
+      "population": 210000.0,
+      "ship_accessible": true
+    },
+    "c14": {
+      "x_coord": 250.0,
+      "y_coord": 150.0,
+      "supply": 0.0,
+      "population": 240000.0,
+      "ship_accessible": true
+    }
   },
   "demand_per_person": 2.0,
   "cost_pipe": 1000000.0,
