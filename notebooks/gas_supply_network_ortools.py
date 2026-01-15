@@ -7,7 +7,7 @@ app = marimo.App()
 @app.cell
 def _():
     import json
-    from dataclasses import dataclass
+    from dataclasses import dataclass, replace
     from math import hypot
     from pathlib import Path
     from typing import Sequence
@@ -15,7 +15,7 @@ def _():
     import marimo as mo
     from ortools.linear_solver import pywraplp
 
-    return Path, Sequence, dataclass, hypot, json, mo, pywraplp
+    return Path, Sequence, dataclass, hypot, json, mo, pywraplp, replace
 
 
 @app.cell
@@ -147,8 +147,55 @@ def _():
 
 
 @app.cell
-def _(Path, build_solution_grid, load_data_from_json, mo, solve_model):
-    data = load_data_from_json(Path("files/base_case.json"))
+def _(Path, load_data_from_json):
+    base_data = load_data_from_json(Path("files/base_case.json"))
+    return base_data
+
+
+@app.cell
+def _(base_data, mo):
+    param_form = (
+        mo.md(
+            """
+            **Update parameters**
+
+            Demand per person: {demand_per_person}
+
+            Pipe cost: {cost_pipe}
+
+            Max flow: {max_flow}
+            """
+        )
+        .batch(
+            demand_per_person=mo.ui.number(
+                value=base_data.demand_per_person, step=0.1
+            ),
+            cost_pipe=mo.ui.number(value=base_data.cost_pipe, step=100_000.0),
+            max_flow=mo.ui.number(value=base_data.max_flow, step=100_000.0),
+        )
+        .form(submit_button_label="Run optimisation", label="Parameters")
+    )
+    param_form
+    return param_form
+
+
+@app.cell
+def _(base_data, param_form, replace):
+    submitted_params = param_form.value
+    if submitted_params is None:
+        params = {
+            "demand_per_person": base_data.demand_per_person,
+            "cost_pipe": base_data.cost_pipe,
+            "max_flow": base_data.max_flow,
+        }
+    else:
+        params = submitted_params
+    data = replace(base_data, **params)
+    return data, params
+
+
+@app.cell
+def _(build_solution_grid, data, mo, solve_model):
     result = solve_model(data)
     pipe_binary_grid = build_solution_grid(data.cells, result["pipe_binary"])
     flow_grid = build_solution_grid(data.cells, result["flow"])
@@ -164,7 +211,6 @@ def _(Path, build_solution_grid, load_data_from_json, mo, solve_model):
 
     mo.vstack([status_md, pipe_binary_md, pipe_binary_table, flow_md, flow_table])
     return (
-        data,
         result,
         pipe_binary_table,
         flow_table,
