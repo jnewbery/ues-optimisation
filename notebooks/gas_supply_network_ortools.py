@@ -134,38 +134,46 @@ def _(build_model, pywraplp):
 
 @app.cell
 def _():
-    def build_solution_table(pipe_binary, flow):
+    def build_solution_grid(cells, values, fill_value=0.0):
         rows = []
-        for (i, j), value in pipe_binary.items():
-            rows.append(
-                {
-                    "variable": "pipe_binary",
-                    "from": i,
-                    "to": j,
-                    "value": value,
-                }
-            )
-        for (i, j), value in flow.items():
-            rows.append({"variable": "flow", "from": i, "to": j, "value": value})
+        for i in cells:
+            row = {"from": i}
+            for j in cells:
+                row[j] = values.get((i, j), fill_value)
+            rows.append(row)
         return rows
 
-    return build_solution_table
+    return build_solution_grid
 
 
 @app.cell
-def _(Path, build_solution_table, load_data_from_json, mo, solve_model):
+def _(Path, build_solution_grid, load_data_from_json, mo, solve_model):
     data = load_data_from_json(Path("files/base_case.json"))
     result = solve_model(data)
-    table_rows = build_solution_table(result["pipe_binary"], result["flow"])
+    pipe_binary_grid = build_solution_grid(data.cells, result["pipe_binary"])
+    flow_grid = build_solution_grid(data.cells, result["flow"])
 
     status_md = mo.md(
         f"**Solver status:** {result['status']}  \n"
         f"**Objective value:** {result['objective_value']}"
     )
-    solution_table = mo.ui.table(table_rows)
+    pipe_binary_table = mo.ui.table(pipe_binary_grid)
+    flow_table = mo.ui.table(flow_grid)
+    pipe_binary_md = mo.md("**Pipe binaries (14x14)**")
+    flow_md = mo.md("**Flow (14x14)**")
 
-    mo.vstack([status_md, solution_table])
-    return data, result, solution_table, status_md, table_rows
+    mo.vstack([status_md, pipe_binary_md, pipe_binary_table, flow_md, flow_table])
+    return (
+        data,
+        result,
+        pipe_binary_table,
+        flow_table,
+        pipe_binary_md,
+        flow_md,
+        status_md,
+        pipe_binary_grid,
+        flow_grid,
+    )
 
 
 if __name__ == "__main__":
