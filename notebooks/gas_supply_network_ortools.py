@@ -199,7 +199,7 @@ def _(Image, ImageDraw, ImageFont):
         positions = {}
         for cell in data.cells:
             x = (data.x_coord[cell] - min_x) / base_step * spacing + padding
-            y = (data.y_coord[cell] - min_y) / base_step * spacing + padding
+            y = (max_y - data.y_coord[cell]) / base_step * spacing + padding
             positions[cell] = (x + cell_size / 2, y + cell_size / 2)
 
         for i, j in result["pipe_binary"]:
@@ -235,7 +235,7 @@ def _(Image, ImageDraw, ImageFont):
 
         for cell in data.cells:
             x = (data.x_coord[cell] - min_x) / base_step * spacing + padding
-            y = (data.y_coord[cell] - min_y) / base_step * spacing + padding
+            y = (max_y - data.y_coord[cell]) / base_step * spacing + padding
             rect = (x, y, x + cell_size, y + cell_size)
             radius = 12
             draw.rounded_rectangle(
