@@ -79,13 +79,9 @@ def _(Path, Sequence, dataclass, json):
 
 @app.cell
 def _(GasNetworkData, hypot, pywraplp):
-    def build_model(
+    def build_and_solve_model(
         data: GasNetworkData,
-    ) -> tuple[
-        pywraplp.Solver,
-        dict[tuple[str, str], pywraplp.Variable],
-        dict[tuple[str, str], pywraplp.Variable],
-    ]:
+    ):
         solver = pywraplp.Solver.CreateSolver("SCIP")
         if solver is None:
             raise RuntimeError("Failed to create OR-Tools solver.")
@@ -118,15 +114,6 @@ def _(GasNetworkData, hypot, pywraplp):
             demand = data.population.get(i, 0.0) * data.demand_per_person
             solver.Add(inflow - outflow + supply - demand >= 0)
 
-        return solver, pipe_binary, flow
-
-    return build_model
-
-
-@app.cell
-def _(build_model, pywraplp):
-    def solve_model(data):
-        solver, pipe_binary, flow = build_model(data)
         status = solver.Solve()
         pipe_binary_values = {
             (i, j): var.solution_value() for (i, j), var in pipe_binary.items()
@@ -142,7 +129,7 @@ def _(build_model, pywraplp):
         }
         return result
 
-    return solve_model
+    return build_and_solve_model
 
 
 @app.cell
@@ -308,8 +295,8 @@ def _(base_data, param_form, replace):
 
 
 @app.cell
-def _(build_solution_grid, data, mo, render_network_diagram, solve_model):
-    result = solve_model(data)
+def _(build_solution_grid, data, mo, render_network_diagram, build_and_solve_model):
+    result = build_and_solve_model(data)
     pipe_binary_grid = build_solution_grid(data.cells, result["pipe_binary"])
     flow_grid = build_solution_grid(data.cells, result["flow"])
     diagram = render_network_diagram(data, result)
