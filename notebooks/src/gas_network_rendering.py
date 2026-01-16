@@ -37,7 +37,7 @@ def render_network_diagram(data: GasNetworkData, result: dict):
     )
     base_step = min(min_step_x, min_step_y)
 
-    render_scale = 1.5
+    render_scale = 15
     spacing = int(90 * render_scale)
     padding = int(50 * render_scale)
     cell_size = int(64 * render_scale)
@@ -54,7 +54,7 @@ def render_network_diagram(data: GasNetworkData, result: dict):
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", int(12 * render_scale))
     except OSError:
-        font = ImageFont.load_default()
+        font = ImageFont.load_default(size = int(18 * render_scale))
     port_logo = None
     port_path = Path(__file__).resolve().parent.parent / "img" / "port.png"
     if port_path.exists():
@@ -96,7 +96,7 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         distance = (dx**2 + dy**2) ** 0.5
         if distance == 0:
             continue
-        shrink = cell_size * 0.45
+        shrink = cell_size * 0.5
         sx = start[0] + dx / distance * shrink
         sy = start[1] + dy / distance * shrink
         ex = end[0] - dx / distance * shrink
@@ -106,15 +106,17 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         )
 
         arrow_size = 10 * render_scale + line_width * 0.6
+        tip_x = sx * 0.2 + ex * 0.8
+        tip_y = sy * 0.2 + ey * 0.8
         left = (
-            ex - dx / distance * arrow_size - dy / distance * arrow_size * 0.6,
-            ey - dy / distance * arrow_size + dx / distance * arrow_size * 0.6,
+            tip_x - dx / distance * arrow_size - dy / distance * arrow_size * 0.6,
+            tip_y - dy / distance * arrow_size + dx / distance * arrow_size * 0.6,
         )
         right = (
-            ex - dx / distance * arrow_size + dy / distance * arrow_size * 0.6,
-            ey - dy / distance * arrow_size - dx / distance * arrow_size * 0.6,
+            tip_x - dx / distance * arrow_size + dy / distance * arrow_size * 0.6,
+            tip_y - dy / distance * arrow_size - dx / distance * arrow_size * 0.6,
         )
-        draw.polygon([left, (ex, ey), right], fill=pipeline_color)
+        draw.polygon([left, (tip_x, tip_y), right], fill=pipeline_color)
 
     for cell in data.cells:
         x = (data.cells[cell].x_coord - min_x) / base_step * spacing + padding
