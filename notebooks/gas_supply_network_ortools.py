@@ -46,6 +46,9 @@ def _(base_data, mo):
         base_data.cells,
         key=lambda name: int(name.removeprefix("c")),
     )
+    supply_cell_md = "\n".join(
+        [f"{{supply_{name}}}" for name in supply_cell_names]
+    )
     default_supply_cells = {
         name
         for name, cell in base_data.cells.items()
@@ -65,13 +68,9 @@ def _(base_data, mo):
         )
         for name in supply_cell_names
     }
-    supply_controls = mo.vstack(
-        [supply_checkboxes[f"supply_{name}"] for name in supply_cell_names],
-        gap=0.25,
-    )
     param_form = (
         mo.md(
-            """
+            f"""
             Demand per person: {demand_per_person}
 
             Pipe cost: {cost_pipe}
@@ -80,7 +79,7 @@ def _(base_data, mo):
 
             LNG supply cells:
 
-            {supply_cells}
+            {supply_cell_md}
             """
         )
         .batch(
@@ -89,7 +88,6 @@ def _(base_data, mo):
             ),
             cost_pipe=mo.ui.number(value=base_data.cost_pipe, step=100_000.0),
             max_flow=mo.ui.number(value=base_data.max_flow, step=100_000.0),
-            supply_cells=supply_controls,
             **supply_checkboxes,
         )
         .form(submit_button_label="Run optimisation", label="Model Parameters")
