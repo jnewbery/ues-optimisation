@@ -56,12 +56,28 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         y = (max_y - data.cells[cell].y_coord) / base_step * spacing + padding
         positions[cell] = (x + cell_size / 2, y + cell_size / 2)
 
+    active_flows = [
+        result["flow"].get((i, j), 0.0)
+        for i, j in result["pipe_binary"]
+        if result["pipe_binary"][(i, j)] > 0.5
+        and result["flow"].get((i, j), 0.0) > 0
+    ]
+    max_flow = max(active_flows, default=0.0)
+    min_line_width = 2
+    max_line_width = 10
+
     for i, j in result["pipe_binary"]:
         if result["pipe_binary"][(i, j)] <= 0.5:
             continue
         flow_value = result["flow"].get((i, j), 0.0)
         if flow_value <= 0:
             continue
+        if max_flow > 0:
+            line_width = min_line_width + (
+                flow_value / max_flow * (max_line_width - min_line_width)
+            )
+        else:
+            line_width = min_line_width
         start = positions[i]
         end = positions[j]
         dx = end[0] - start[0]
@@ -74,9 +90,11 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         sy = start[1] + dy / distance * shrink
         ex = end[0] - dx / distance * shrink
         ey = end[1] - dy / distance * shrink
-        draw.line((sx, sy, ex, ey), fill=pipeline_color, width=4)
+        draw.line(
+            (sx, sy, ex, ey), fill=pipeline_color, width=int(round(line_width))
+        )
 
-        arrow_size = 10
+        arrow_size = 10 + line_width * 0.6
         left = (
             ex - dx / distance * arrow_size - dy / distance * arrow_size * 0.6,
             ey - dy / distance * arrow_size + dx / distance * arrow_size * 0.6,
