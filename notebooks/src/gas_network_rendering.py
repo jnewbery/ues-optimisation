@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
 from src.gas_network_model import GasNetworkData
@@ -49,6 +51,11 @@ def render_network_diagram(data: GasNetworkData, result: dict):
     image = Image.new("RGB", (width, height), background)
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
+    port_logo = None
+    port_path = Path(__file__).resolve().parent.parent / "img" / "port.png"
+    if port_path.exists():
+        port_logo = Image.open(port_path).convert("RGBA")
+    logo_padding = 4
 
     positions = {}
     for cell in data.cells:
@@ -123,5 +130,11 @@ def render_network_diagram(data: GasNetworkData, result: dict):
             fill=text_color,
             font=font,
         )
+        if data.cells[cell].supply > 0 and port_logo is not None:
+            logo_size = int(cell_size * 0.35)
+            logo = port_logo.resize((logo_size, logo_size), Image.LANCZOS)
+            logo_x = int(x + cell_size - logo_size - logo_padding)
+            logo_y = int(y + logo_padding)
+            image.paste(logo, (logo_x, logo_y), logo)
 
     return image
