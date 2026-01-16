@@ -42,6 +42,33 @@ def _(Path, load_data_from_json):
 
 @app.cell
 def _(base_data, mo):
+    supply_cell_names = sorted(
+        base_data.cells,
+        key=lambda name: int(name.removeprefix("c")),
+    )
+    default_supply_cells = {
+        name
+        for name, cell in base_data.cells.items()
+        if cell.supply > 0
+    }
+    if not default_supply_cells:
+        default_supply_cells = {
+            name
+            for name, cell in base_data.cells.items()
+            if cell.ship_accessible
+        }
+    supply_checkboxes = {
+        f"supply_{name}": mo.ui.checkbox(
+            value=name in default_supply_cells,
+            label=f"Cell {name.removeprefix('c')}",
+            disabled=not base_data.cells[name].ship_accessible,
+        )
+        for name in supply_cell_names
+    }
+    supply_controls = mo.vstack(
+        [supply_checkboxes[f"supply_{name}"] for name in supply_cell_names],
+        gap=0.25,
+    )
     param_form = (
         mo.md(
             """
@@ -50,6 +77,10 @@ def _(base_data, mo):
             Pipe cost: {cost_pipe}
 
             Max flow: {max_flow}
+
+            LNG supply cells:
+
+            {supply_cells}
             """
         )
         .batch(
@@ -58,6 +89,8 @@ def _(base_data, mo):
             ),
             cost_pipe=mo.ui.number(value=base_data.cost_pipe, step=100_000.0),
             max_flow=mo.ui.number(value=base_data.max_flow, step=100_000.0),
+            supply_cells=supply_controls,
+            **supply_checkboxes,
         )
         .form(submit_button_label="Run optimisation", label="Model Parameters")
     )
@@ -74,9 +107,29 @@ def _(base_data, param_form, replace):
             "cost_pipe": base_data.cost_pipe,
             "max_flow": base_data.max_flow,
         }
+        supply_selection = {
+            name: cell.supply > 0
+            for name, cell in base_data.cells.items()
+        }
     else:
-        params = submitted_params
-    data = replace(base_data, **params)
+        params = {
+            "demand_per_person": submitted_params["demand_per_person"],
+            "cost_pipe": submitted_params["cost_pipe"],
+            "max_flow": submitted_params["max_flow"],
+        }
+        supply_selection = {
+            name: submitted_params[f"supply_{name}"]
+            for name in base_data.cells
+        }
+    supply_amount = max(cell.supply for cell in base_data.cells.values())
+    updated_cells = {
+        name: replace(
+            cell,
+            supply=supply_amount if supply_selection[name] else 0.0,
+        )
+        for name, cell in base_data.cells.items()
+    }
+    data = replace(base_data, cells=updated_cells, **params)
     return (data,)
 
 
