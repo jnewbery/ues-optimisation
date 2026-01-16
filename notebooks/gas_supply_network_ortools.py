@@ -70,7 +70,7 @@ def _(base_data, mo):
     }
     param_form = (
         mo.md(
-            f"""
+            """
             Demand per person: {demand_per_person}
 
             Pipe cost: {cost_pipe}
@@ -79,8 +79,8 @@ def _(base_data, mo):
 
             LNG supply cells:
 
-            {supply_cell_md}
             """
+            + supply_cell_md
         )
         .batch(
             demand_per_person=mo.ui.number(
