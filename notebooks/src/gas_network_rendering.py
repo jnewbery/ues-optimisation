@@ -37,9 +37,10 @@ def render_network_diagram(data: GasNetworkData, result: dict):
     )
     base_step = min(min_step_x, min_step_y)
 
-    spacing = 90
-    padding = 50
-    cell_size = 64
+    render_scale = 1.5
+    spacing = int(90 * render_scale)
+    padding = int(50 * render_scale)
+    cell_size = int(64 * render_scale)
 
     min_x = min(unique_x)
     max_x = max(unique_x)
@@ -50,12 +51,15 @@ def render_network_diagram(data: GasNetworkData, result: dict):
 
     image = Image.new("RGB", (width, height), background)
     draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", int(12 * render_scale))
+    except OSError:
+        font = ImageFont.load_default()
     port_logo = None
     port_path = Path(__file__).resolve().parent.parent / "img" / "port.png"
     if port_path.exists():
         port_logo = Image.open(port_path).convert("RGBA")
-    logo_padding = 4
+    logo_padding = int(4 * render_scale)
 
     positions = {}
     for cell in data.cells:
@@ -70,8 +74,8 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         and result["flow"].get((i, j), 0.0) > 0
     ]
     max_flow = max(active_flows, default=0.0)
-    min_line_width = 2
-    max_line_width = 10
+    min_line_width = 2 * render_scale
+    max_line_width = 10 * render_scale
 
     for i, j in result["pipe_binary"]:
         if result["pipe_binary"][(i, j)] <= 0.5:
@@ -101,7 +105,7 @@ def render_network_diagram(data: GasNetworkData, result: dict):
             (sx, sy, ex, ey), fill=pipeline_color, width=int(round(line_width))
         )
 
-        arrow_size = 10 + line_width * 0.6
+        arrow_size = 10 * render_scale + line_width * 0.6
         left = (
             ex - dx / distance * arrow_size - dy / distance * arrow_size * 0.6,
             ey - dy / distance * arrow_size + dx / distance * arrow_size * 0.6,
@@ -116,7 +120,7 @@ def render_network_diagram(data: GasNetworkData, result: dict):
         x = (data.cells[cell].x_coord - min_x) / base_step * spacing + padding
         y = (max_y - data.cells[cell].y_coord) / base_step * spacing + padding
         rect = (x, y, x + cell_size, y + cell_size)
-        radius = 12
+        radius = int(12 * render_scale)
         draw.rounded_rectangle(
             rect, radius=radius, fill=cell_color, outline=cell_border, width=3
         )
@@ -124,8 +128,9 @@ def render_network_diagram(data: GasNetworkData, result: dict):
             draw.rounded_rectangle(rect, radius=radius, outline=ship_border, width=3)
         label = cell.replace("c", "")
         text_width = draw.textlength(label, font=font)
+        text_offset = int(6 * render_scale)
         draw.text(
-            (x + cell_size / 2 - text_width / 2, y + cell_size / 2 - 6),
+            (x + cell_size / 2 - text_width / 2, y + cell_size / 2 - text_offset),
             label,
             fill=text_color,
             font=font,
