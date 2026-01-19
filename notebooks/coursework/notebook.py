@@ -10,10 +10,9 @@ def _():
     from pathlib import Path
     from dataclasses import dataclass
     import enum
-    import base64
 
     import plotly.graph_objects as go
-    return Path, base64, dataclass, enum, go, mo
+    return Path, dataclass, enum, go, mo
 
 
 @app.cell
@@ -244,26 +243,7 @@ def _(mo):
 
 
 @app.cell
-def _(
-    Path,
-    base64,
-    go,
-    mo,
-    show_buildings,
-    show_energy,
-    show_rows,
-    town_layout,
-):
-    image_dir = Path("notebooks") / "coursework" / "img"
-
-    def icon_data_uri(filename: str) -> str:
-        icon_path = image_dir / filename
-        if not icon_path.exists():
-            return ""
-        data = icon_path.read_bytes()
-        encoded = base64.b64encode(data).decode("ascii")
-        return f"data:image/png;base64,{encoded}"
-
+def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
     icon_map = {
         "low density housing": "housing-low-density.png",
         "medium density housing": "housing-med-density.png",
@@ -273,9 +253,6 @@ def _(
         "shopping centre": "shopping_centre.png",
         "school": "school.png",
         "office": "office.png",
-    }
-    icon_uri_map = {
-        label: icon_data_uri(filename) for label, filename in icon_map.items()
     }
     color_map = {
         "low density housing": "rgb(255, 178, 220)",
@@ -296,6 +273,7 @@ def _(
 
     building_traces = []
     building_metadata = []
+    center_lookup = {}
     marker_x = []
     marker_y = []
     marker_sizes = []
@@ -316,8 +294,11 @@ def _(
         )
         width = x1 - x0
         height = y1 - y0
-        marker_x.append((x0 + x1) / 2)
-        marker_y.append((y0 + y1) / 2)
+        center_x = (x0 + x1) / 2
+        center_y = (y0 + y1) / 2
+        marker_x.append(center_x)
+        marker_y.append(center_y)
+        center_lookup[(round(center_x, 4), round(center_y, 4))] = idx
         marker_sizes.append(max(width, height) * cell_size * 0.8)
         fill_color = color_map.get(building_type, "rgb(180, 180, 180)")
         building_traces.append(
@@ -383,7 +364,7 @@ def _(
         x=marker_x,
         y=marker_y,
         mode="markers",
-        marker={"size": marker_sizes, "opacity": 0},
+        marker={"size": marker_sizes, "opacity": 0.01},
         hoverinfo="skip",
         name="Building interactions",
         showlegend=False,
@@ -401,6 +382,7 @@ def _(
     fig.update_layout(
         title="Town layout",
         clickmode="event+select",
+        dragmode="select",
         xaxis={
             "visible": False,
             "range": [0, max_x],
@@ -417,14 +399,28 @@ def _(
         legend={"orientation": "h"},
     )
     plot = mo.ui.plotly(fig)
-    return building_metadata, icon_map, plot
+    return building_metadata, center_lookup, icon_map, plot
 
 
 @app.cell
-def _(Path, building_metadata, controls, icon_map, mo, plot):
-    if plot.indices:
-        selected_index = plot.indices[0]
-        selected = building_metadata[selected_index]
+def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
+    selected = None
+    points = plot.value or []
+    if points:
+        point = points[0]
+        if isinstance(point, dict):
+            point_index = point.get("pointIndex")
+            if point_index is None:
+                point_index = point.get("pointNumber")
+            if isinstance(point_index, int) and point_index < len(building_metadata):
+                selected = building_metadata[point_index]
+            elif "x" in point and "y" in point:
+                key = (round(float(point["x"]), 4), round(float(point["y"]), 4))
+                match_index = center_lookup.get(key)
+                if match_index is not None:
+                    selected = building_metadata[match_index]
+
+    if selected is not None:
         icon_file = icon_map.get(selected["type"])
         if icon_file:
             icon_path = Path("notebooks") / "coursework" / "img" / icon_file
@@ -467,6 +463,12 @@ def _(Path, building_metadata, controls, icon_map, mo, plot):
             layout,
         ]
     )
+    return (selected,)
+
+
+@app.cell
+def _(selected):
+    print(selected)
     return
 
 
