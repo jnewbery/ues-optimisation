@@ -476,7 +476,7 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
 
 
 @app.cell
-def _(Path, building_metadata, center_lookup, icon_map, mo, plot):
+def _(CellType, DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
     selected = None
     value = plot.value
     points = []
@@ -509,6 +509,16 @@ def _(Path, building_metadata, center_lookup, icon_map, mo, plot):
                 selected = building_metadata[match_index]
 
     if selected is not None:
+        demand_by_label = {cell_type.value: demand for cell_type, demand in DEMAND.items()}
+        demand = demand_by_label.get(selected["type"])
+        if demand:
+            winter_thermal = demand.thermal_demand_kwh_year * demand.thermal_winter_factor
+            mid_thermal = demand.thermal_demand_kwh_year * demand.thermal_mid_factor
+            summer_thermal = demand.thermal_demand_kwh_year * demand.thermal_summer_factor
+        else:
+            winter_thermal = 0
+            mid_thermal = 0
+            summer_thermal = 0
         icon_file = icon_map.get(selected["type"])
         if icon_file:
             icon_path = Path("notebooks") / "coursework" / "img" / icon_file
@@ -521,9 +531,13 @@ def _(Path, building_metadata, center_lookup, icon_map, mo, plot):
                 icon_view,
                 mo.md(f"**Type:** {selected['type']}"),
                 mo.md(
-                    f"**Bounds:** x={selected['x_min']}-{selected['x_max']}, "
-                    f"y={selected['y_min']}-{selected['y_max']}"
+                    "**Coordinates:** "
+                    f"({selected['x_min']}, {selected['y_min']}) -> "
+                    f"({selected['x_max']}, {selected['y_max']})"
                 ),
+                mo.md(f"**Winter thermal demand:** {winter_thermal:,.0f}kWh"),
+                mo.md(f"**Mid thermal demand:** {mid_thermal:,.0f}kWh"),
+                mo.md(f"**Summer thermal demand:** {summer_thermal:,.0f}kWh"),
             ],
             align="center",
         )
