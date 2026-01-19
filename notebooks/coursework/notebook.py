@@ -183,18 +183,70 @@ def _(CellType):
         "40": 40,
     }
 
+    def resolve_cell_type(cell: str) -> CellType:
+        if cell == "SH":
+            return CellType.SC
+        return CellType[cell]
+
+    merge_types = {"H", "OF", "SCH", "SC"}
     town_layout = []
+    visited = set()
+    max_y = len(grid_layout)
+
     for y_index, row in enumerate(grid_layout):
         for x_index, cell in enumerate(row):
-            town_layout.append(
-                {
-                    "x_min": x_index,
-                    "x_max": x_index + 1,
-                    "y_min": y_index,
-                    "y_max": y_index + 1,
-                    "type": CellType[cell]
-                }
-            )
+            if cell in merge_types:
+                if (x_index, y_index) in visited:
+                    continue
+
+                stack = [(x_index, y_index)]
+                visited.add((x_index, y_index))
+                component = []
+
+                while stack:
+                    x_cell, y_cell = stack.pop()
+                    component.append((x_cell, y_cell))
+                    neighbors = (
+                        (x_cell - 1, y_cell),
+                        (x_cell + 1, y_cell),
+                        (x_cell, y_cell - 1),
+                        (x_cell, y_cell + 1),
+                    )
+                    for x_next, y_next in neighbors:
+                        if not (0 <= y_next < max_y):
+                            continue
+                        if not (0 <= x_next < len(grid_layout[y_next])):
+                            continue
+                        if (x_next, y_next) in visited:
+                            continue
+                        if grid_layout[y_next][x_next] != cell:
+                            continue
+                        visited.add((x_next, y_next))
+                        stack.append((x_next, y_next))
+
+                x_min = min(x for x, _ in component)
+                x_max = max(x for x, _ in component) + 1
+                y_min = min(y for _, y in component)
+                y_max = max(y for _, y in component) + 1
+                town_layout.append(
+                    {
+                        "x_min": x_min,
+                        "x_max": x_max,
+                        "y_min": y_min,
+                        "y_max": y_max,
+                        "type": resolve_cell_type(cell),
+                    }
+                )
+            else:
+                town_layout.append(
+                    {
+                        "x_min": x_index,
+                        "x_max": x_index + 1,
+                        "y_min": y_index,
+                        "y_max": y_index + 1,
+                        "type": resolve_cell_type(cell),
+                    }
+                )
     return (town_layout,)
 
 
