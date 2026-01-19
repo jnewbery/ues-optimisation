@@ -277,6 +277,7 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
     marker_x = []
     marker_y = []
     marker_sizes = []
+    marker_customdata = []
     for idx, building in enumerate(town_layout):
         building_type = building["type"].value
         x0 = building["x_min"]
@@ -298,6 +299,7 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
         center_y = (y0 + y1) / 2
         marker_x.append(center_x)
         marker_y.append(center_y)
+        marker_customdata.append(idx)
         center_lookup[(round(center_x, 4), round(center_y, 4))] = idx
         marker_sizes.append(max(width, height) * cell_size * 0.8)
         fill_color = color_map.get(building_type, "rgb(180, 180, 180)")
@@ -365,6 +367,7 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
         y=marker_y,
         mode="markers",
         marker={"size": marker_sizes, "opacity": 0.01},
+        customdata=marker_customdata,
         hoverinfo="skip",
         name="Building interactions",
         showlegend=False,
@@ -409,16 +412,20 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
     if points:
         point = points[0]
         if isinstance(point, dict):
-            point_index = point.get("pointIndex")
-            if point_index is None:
-                point_index = point.get("pointNumber")
-            if isinstance(point_index, int) and point_index < len(building_metadata):
-                selected = building_metadata[point_index]
-            elif "x" in point and "y" in point:
-                key = (round(float(point["x"]), 4), round(float(point["y"]), 4))
-                match_index = center_lookup.get(key)
-                if match_index is not None:
-                    selected = building_metadata[match_index]
+            custom_index = point.get("customdata")
+            if isinstance(custom_index, int) and custom_index < len(building_metadata):
+                selected = building_metadata[custom_index]
+            else:
+                point_index = point.get("pointIndex")
+                if point_index is None:
+                    point_index = point.get("pointNumber")
+                if isinstance(point_index, int) and point_index < len(building_metadata):
+                    selected = building_metadata[point_index]
+                elif "x" in point and "y" in point:
+                    key = (round(float(point["x"]), 4), round(float(point["y"]), 4))
+                    match_index = center_lookup.get(key)
+                    if match_index is not None:
+                        selected = building_metadata[match_index]
 
     if selected is not None:
         icon_file = icon_map.get(selected["type"])
