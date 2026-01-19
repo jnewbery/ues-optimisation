@@ -42,6 +42,7 @@ def _(CellType, dataclass):
     ELECTRICITY_EXPORT_COMMERCIAL_P_KWH = 18
     HEAT_NETWORK_PIPE_COST_METER = 1000 * 100  # £1000 per meter
     HEAT_NETWORK_CONNECTION_COST_BUILDING = 1700 * 100  # £1700 per connection
+    ENERGY_CENTRE_CAPEX = 5_000_000 * 100  # £5m per energy centre
 
     @dataclass
     class DemandData:
@@ -258,6 +259,271 @@ def _(Path, mo, render_town_layout, town_layout):
         [
             mo.md("## Coursework town layout"),
             mo.image(town_image, alt="Coursework town layout"),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(CellType, DEMAND, dataclass, town_layout):
+    @dataclass(frozen=True)
+    class HeatNode:
+        name: str
+        x_coord: float
+        y_coord: float
+        building_type: CellType
+        winter_heat_demand_kwh: float
+        is_energy_centre: bool
+
+    def winter_thermal_demand(building_type: CellType, area: int) -> float:
+        demand_data = DEMAND.get(building_type)
+        if demand_data is None:
+            return 0.0
+        return (
+            demand_data.thermal_demand_kwh_year
+            * demand_data.thermal_winter_factor
+            * area
+        )
+
+    nodes = []
+    for index, building in enumerate(town_layout, start=1):
+        x_min = building["x_min"]
+        x_max = building["x_max"]
+        y_min = building["y_min"]
+        y_max = building["y_max"]
+        area = (x_max - x_min) * (y_max - y_min)
+        building_type = building["building_type"]
+        nodes.append(
+            HeatNode(
+                name=f"b{index}",
+                x_coord=(x_min + x_max) / 2,
+                y_coord=(y_min + y_max) / 2,
+                building_type=building_type,
+                winter_heat_demand_kwh=winter_thermal_demand(building_type, area),
+                is_energy_centre=building_type == CellType.EC,
+            )
+        )
+
+    total_winter_heat_demand = sum(node.winter_heat_demand_kwh for node in nodes)
+    return HeatNode, nodes, total_winter_heat_demand, winter_thermal_demand
+
+
+@app.cell
+def _(HeatNode, total_winter_heat_demand):
+    from math import hypot
+    from ortools.linear_solver import pywraplp
+
+    def build_and_solve_heat_network(
+        nodes: list[HeatNode],
+        cost_energy_centre: float,
+        cost_pipe: float,
+    ) -> dict:
+        solver = pywraplp.Solver.CreateSolver("SCIP")
+        if solver is None:
+            raise RuntimeError("Failed to create OR-Tools solver.")
+
+        node_names = [node.name for node in nodes]
+        node_lookup = {node.name: node for node in nodes}
+        pairs = [(i, j) for i in node_names for j in node_names if i != j]
+
+        pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in pairs}
+        flow = {
+            (i, j): solver.NumVar(0.0, solver.infinity(), f"flow[{i},{j}]")
+            for i, j in pairs
+        }
+        build_centre = {
+            node.name: solver.BoolVar(f"build[{node.name}]")
+            for node in nodes
+            if node.is_energy_centre
+        }
+        heat_generated = {
+            node.name: solver.NumVar(0.0, solver.infinity(), f"heat[{node.name}]")
+            for node in nodes
+        }
+
+        objective_terms = []
+        for i, j in pairs:
+            distance = hypot(
+                node_lookup[i].x_coord - node_lookup[j].x_coord,
+                node_lookup[i].y_coord - node_lookup[j].y_coord,
+            )
+            objective_terms.append(pipe_binary[(i, j)] * cost_pipe * distance)
+        for node in nodes:
+            if node.is_energy_centre:
+                objective_terms.append(build_centre[node.name] * cost_energy_centre)
+        solver.Minimize(solver.Sum(objective_terms))
+
+        max_flow = total_winter_heat_demand
+        for i, j in pairs:
+            solver.Add(flow[(i, j)] <= max_flow * pipe_binary[(i, j)])
+
+        for node in nodes:
+            if node.is_energy_centre:
+                solver.Add(
+                    heat_generated[node.name]
+                    <= total_winter_heat_demand * build_centre[node.name]
+                )
+            else:
+                solver.Add(heat_generated[node.name] == 0.0)
+
+        for node in nodes:
+            inflow = solver.Sum(
+                flow[(j, node.name)] for j in node_names if j != node.name
+            )
+            outflow = solver.Sum(
+                flow[(node.name, j)] for j in node_names if j != node.name
+            )
+            solver.Add(
+                inflow
+                + heat_generated[node.name]
+                - outflow
+                - node.winter_heat_demand_kwh
+                >= 0
+            )
+
+        status = solver.Solve()
+        pipe_binary_values = {
+            (i, j): var.solution_value() for (i, j), var in pipe_binary.items()
+        }
+        flow_values = {(i, j): var.solution_value() for (i, j), var in flow.items()}
+        heat_values = {name: var.solution_value() for name, var in heat_generated.items()}
+        build_values = {
+            name: var.solution_value() for name, var in build_centre.items()
+        }
+        result = {
+            "status": status,
+            "objective_value": solver.Objective().Value()
+            if status == pywraplp.Solver.OPTIMAL
+            else None,
+            "pipe_binary": pipe_binary_values,
+            "flow": flow_values,
+            "heat_generated": heat_values,
+            "build_centre": build_values,
+        }
+        return result
+
+    return (build_and_solve_heat_network,)
+
+
+@app.cell
+def _(ENERGY_CENTRE_CAPEX, HEAT_NETWORK_PIPE_COST_METER, mo):
+    demand_form = (
+        mo.md(
+            """
+            **Heat network optimisation parameters**
+
+            Energy centre build cost: {energy_centre_cost}
+
+            Pipe installation cost (per meter): {pipe_cost}
+            """
+        )
+        .batch(
+            energy_centre_cost=mo.ui.number(
+                value=ENERGY_CENTRE_CAPEX,
+                step=100_000.0,
+            ),
+            pipe_cost=mo.ui.number(
+                value=HEAT_NETWORK_PIPE_COST_METER,
+                step=100_000.0,
+            ),
+        )
+        .form(submit_button_label="Run optimisation", label="Model Parameters")
+    )
+    demand_form
+    return (demand_form,)
+
+
+@app.cell
+def _(ENERGY_CENTRE_CAPEX, HEAT_NETWORK_PIPE_COST_METER, demand_form):
+    submitted = demand_form.value
+    if submitted is None:
+        cost_energy_centre = ENERGY_CENTRE_CAPEX
+        cost_pipe = HEAT_NETWORK_PIPE_COST_METER
+    else:
+        cost_energy_centre = submitted["energy_centre_cost"]
+        cost_pipe = submitted["pipe_cost"]
+    return cost_energy_centre, cost_pipe
+
+
+@app.cell
+def _(build_and_solve_heat_network, cost_energy_centre, cost_pipe, nodes):
+    heat_network_result = build_and_solve_heat_network(
+        nodes,
+        cost_energy_centre=cost_energy_centre,
+        cost_pipe=cost_pipe,
+    )
+    return (heat_network_result,)
+
+
+@app.cell
+def _(mo, nodes, total_winter_heat_demand):
+    demand_rows = [
+        {
+            "Building": node.name,
+            "Type": node.building_type.value,
+            "Winter demand (kWh)": node.winter_heat_demand_kwh,
+            "Energy centre site": node.is_energy_centre,
+        }
+        for node in nodes
+    ]
+    mo.vstack(
+        [
+            mo.md(f"**Total winter heat demand:** {total_winter_heat_demand:,.0f} kWh"),
+            mo.md("**Building winter heat demands**"),
+            mo.ui.table(demand_rows),
+        ]
+    )
+    return (demand_rows,)
+
+
+@app.cell
+def _(mo, nodes, heat_network_result):
+    from math import hypot
+
+    node_lookup = {node.name: node for node in nodes}
+    built_centres = []
+    for node in nodes:
+        if not node.is_energy_centre:
+            continue
+        built_centres.append(
+            {
+                "Energy centre": node.name,
+                "Built": heat_network_result["build_centre"].get(node.name, 0.0),
+                "Heat generated (kWh)": heat_network_result["heat_generated"].get(
+                    node.name, 0.0
+                ),
+            }
+        )
+
+    pipe_rows = []
+    for (i, j), built in heat_network_result["pipe_binary"].items():
+        if built < 0.5:
+            continue
+        distance = hypot(
+            node_lookup[i].x_coord - node_lookup[j].x_coord,
+            node_lookup[i].y_coord - node_lookup[j].y_coord,
+        )
+        pipe_rows.append(
+            {
+                "From": i,
+                "To": j,
+                "Distance (cells)": distance,
+                "Flow (kWh)": heat_network_result["flow"][(i, j)],
+            }
+        )
+
+    status_md = mo.md(
+        f"**Solver status:** {heat_network_result['status']}  \n"
+        f"**Objective value:** {heat_network_result['objective_value']}"
+    )
+    mo.vstack(
+        [
+            mo.md("## Heat network optimisation results"),
+            status_md,
+            mo.md("**Energy centre build decisions**"),
+            mo.ui.table(built_centres),
+            mo.md("**Installed pipes**"),
+            mo.ui.table(pipe_rows),
         ]
     )
     return
