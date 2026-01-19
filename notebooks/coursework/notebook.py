@@ -257,7 +257,7 @@ def _(Path, mo, render_town_layout, town_layout):
     mo.vstack(
         [
             mo.md("## Coursework town layout"),
-            mo.image(town_image, alt="Coursework town layout"),
+            mo.image(town_image, alt="Coursework town layout", width=800, height=800),
         ]
     )
     return
