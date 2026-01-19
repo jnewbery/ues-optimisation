@@ -9,6 +9,7 @@ dependencies = [
     "marimo>=0.18.4",
     "ortools>=9.14.6206",
     "pillow>=12.0.0",
+    "plotly>=5.24.0",
     "poethepoet>=0.38.0",
 ]
 [tool.poe.tasks]
