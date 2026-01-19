@@ -233,7 +233,12 @@ def _(mo):
     show_rows = mo.ui.checkbox(value=True, label="Rows")
     show_energy = mo.ui.checkbox(value=False, label="Energy network (stub)")
 
-    controls = mo.hstack([show_buildings, show_rows, show_energy])
+    controls = mo.hstack(
+        [show_buildings, show_rows, show_energy],
+        justify="start",
+        align="center",
+        gap=1,
+    )
     controls
     return controls, show_buildings, show_energy, show_rows
 
@@ -242,7 +247,6 @@ def _(mo):
 def _(
     Path,
     base64,
-    controls,
     go,
     mo,
     show_buildings,
@@ -285,25 +289,36 @@ def _(
         "school": "rgb(160, 70, 20)",
         "office": "rgb(255, 255, 0)",
     }
+    cell_size = 48
 
     max_x = max(building["x_max"] for building in town_layout)
     max_y = max(building["y_max"] for building in town_layout)
 
     building_traces = []
+    building_metadata = []
+    marker_x = []
+    marker_y = []
+    marker_sizes = []
     for idx, building in enumerate(town_layout):
         building_type = building["type"].value
         x0 = building["x_min"]
         x1 = building["x_max"]
         y0 = building["y_min"]
         y1 = building["y_max"]
-        icon_uri = icon_uri_map.get(building_type, "")
-        if icon_uri:
-            hover = (
-                f"<b>{building_type}</b><br>"
-                f"<img src='{icon_uri}' width='64' height='64'>"
-            )
-        else:
-            hover = f"<b>{building_type}</b>"
+        building_metadata.append(
+            {
+                "type": building_type,
+                "x_min": x0,
+                "x_max": x1,
+                "y_min": y0,
+                "y_max": y1,
+            }
+        )
+        width = x1 - x0
+        height = y1 - y0
+        marker_x.append((x0 + x1) / 2)
+        marker_y.append((y0 + y1) / 2)
+        marker_sizes.append(max(width, height) * cell_size * 0.8)
         fill_color = color_map.get(building_type, "rgb(180, 180, 180)")
         building_traces.append(
             go.Scatter(
@@ -313,7 +328,7 @@ def _(
                 mode="lines",
                 line={"color": "rgb(90, 90, 90)", "width":1},
                 fillcolor=fill_color.replace("rgb", "rgba").replace(")", ", 0.8)"),
-                hovertemplate=hover + "<extra></extra>",
+                hoverinfo="skip",
                 name="Buildings",
                 legendgroup="buildings",
                 showlegend=idx == 0,
@@ -364,9 +379,20 @@ def _(
             )
         )
 
+    building_interaction_trace = go.Scatter(
+        x=marker_x,
+        y=marker_y,
+        mode="markers",
+        marker={"size": marker_sizes, "opacity": 0},
+        hoverinfo="skip",
+        name="Building interactions",
+        showlegend=False,
+    )
+
     fig = go.Figure()
     if show_buildings.value:
         fig.add_traces(building_traces)
+        fig.add_trace(building_interaction_trace)
     if show_rows.value:
         fig.add_traces(row_traces)
     if show_energy.value:
@@ -374,6 +400,7 @@ def _(
 
     fig.update_layout(
         title="Town layout",
+        clickmode="event+select",
         xaxis={
             "visible": False,
             "range": [0, max_x],
@@ -385,14 +412,59 @@ def _(
             "scaleanchor": "x",
         },
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
+        width=int(max_x * cell_size + 80),
+        height=int(max_y * cell_size + 80),
         legend={"orientation": "h"},
+    )
+    plot = mo.ui.plotly(fig)
+    return building_metadata, icon_map, plot
+
+
+@app.cell
+def _(Path, building_metadata, controls, icon_map, mo, plot):
+    if plot.indices:
+        selected_index = plot.indices[0]
+        selected = building_metadata[selected_index]
+        icon_file = icon_map.get(selected["type"])
+        if icon_file:
+            icon_path = Path("notebooks") / "coursework" / "img" / icon_file
+            icon_view = mo.image(icon_path, alt=selected["type"], width=96)
+        else:
+            icon_view = mo.md("")
+        info_panel = mo.vstack(
+            [
+                mo.md("### Building details"),
+                icon_view,
+                mo.md(f"**Type:** {selected['type']}"),
+                mo.md(
+                    f"**Bounds:** x={selected['x_min']}-{selected['x_max']}, "
+                    f"y={selected['y_min']}-{selected['y_max']}"
+                ),
+            ],
+            align="start",
+        )
+    else:
+        info_panel = mo.vstack(
+            [
+                mo.md("### Building details"),
+                mo.md("Click a building to see its details."),
+            ],
+            align="start",
+        )
+
+    layout = mo.hstack(
+        [plot, info_panel],
+        justify="start",
+        align="start",
+        widths=[3, 1],
+        gap=1,
     )
 
     mo.vstack(
         [
             mo.md("## Town Layout"),
             controls,
-            mo.ui.plotly(fig),
+            layout,
         ]
     )
     return
