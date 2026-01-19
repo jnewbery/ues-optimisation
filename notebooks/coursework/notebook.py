@@ -10,8 +10,7 @@ def _():
 
     import marimo as mo
 
-    from src.town_rendering import render_town_layout
-
+    from town_rendering import render_town_layout
     return Path, mo, render_town_layout
 
 
@@ -37,7 +36,7 @@ def _():
 
 @app.cell
 def _(Path, mo, render_town_layout, town_layout):
-    image_dir = Path("notebooks") / "img"
+    image_dir = Path("notebooks") / "coursework" / "img"
     town_image = render_town_layout(town_layout, image_dir)
     mo.vstack(
         [
