@@ -234,7 +234,7 @@ def _(CellType):
                         "x_max": x_max,
                         "y_min": y_min,
                         "y_max": y_max,
-                        "type": resolve_cell_type(cell),
+                        "building_type": resolve_cell_type(cell),
                     }
                 )
             else:
@@ -244,7 +244,7 @@ def _(CellType):
                         "x_max": x_index + 1,
                         "y_min": y_index,
                         "y_max": y_index + 1,
-                        "type": resolve_cell_type(cell),
+                        "building_type": resolve_cell_type(cell),
                     }
                 )
     return (town_layout,)

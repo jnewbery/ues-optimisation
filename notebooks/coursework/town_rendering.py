@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from pathlib import Path
-
 from typing import TypedDict
 
 from PIL import Image, ImageDraw, ImageFont
@@ -12,17 +9,15 @@ class Building(TypedDict):
     x_max: int
     y_min: int
     y_max: int
-    type: str
-    max_heat_demand: int
+    building_type: str
 
 
 TownLayout = list[Building]
 
-
 def render_town_layout(
     layout: TownLayout,
     image_dir: Path,
-    cell_size: int = 96,
+    cell_size: int = 128,
     padding: int = 24,
 ) -> Image.Image:
     max_x = max(building["x_max"] for building in layout)
@@ -51,30 +46,30 @@ def render_town_layout(
         "school": (160, 70, 20),
         "office": (255, 255, 0),
     }
-    text_color_map = {
-        "potential energy centre": (255, 255, 255),
-        "school": (20, 20, 20),
-        "office": (20, 20, 20),
-    }
-    label_map = {
-        "low density housing": "LD",
-        "medium density housing": "MD",
-        "high density housing": "HD",
-        "potential energy centre": "EC",
-        "hospital": "H",
-        "shopping centre": "SC",
-        "school": "SCH",
-        "office": "OF",
-        "other": "O",
-        "green space": "G",
-    }
-    default_text_color = (25, 25, 25)
+    # text_color_map = {
+    #     "potential energy centre": (255, 255, 255),
+    #     "school": (20, 20, 20),
+    #     "office": (20, 20, 20),
+    # }
+    # label_map = {
+    #     "low density housing": "LD",
+    #     "medium density housing": "MD",
+    #     "high density housing": "HD",
+    #     "potential energy centre": "EC",
+    #     "hospital": "H",
+    #     "shopping centre": "SC",
+    #     "school": "SCH",
+    #     "office": "OF",
+    #     "other": "O",
+    #     "green space": "G",
+    # }
+    # default_text_color = (25, 25, 25)
 
     icon_map = {
         "low density housing": "housing-low-density.png",
         "medium density housing": "housing-med-density.png",
         "high density housing": "housing-high-density.png",
-        "energy centre": "energy-centre.png",
+        "potential energy centre": "energy-centre.png",
         "hospital": "hospital.png",
         "shopping centre": "shopping_centre.png",
         "school": "school.png",
@@ -88,7 +83,7 @@ def render_town_layout(
             loaded_icons[key] = Image.open(icon_path).convert("RGBA")
 
     for building in layout:
-        building_type = building["type"]
+        building_type = building["building_type"]
         x0 = padding + building["x_min"] * cell_size
         y0 = padding + building["y_min"] * cell_size
         x1 = padding + building["x_max"] * cell_size
@@ -98,18 +93,18 @@ def render_town_layout(
 
         icon = loaded_icons.get(building_type)
         if icon is not None:
-            icon_size = int(min(x1 - x0, y1 - y0) * 0.7)
+            icon_size = int(cell_size * 0.7)
             resized = icon.resize((icon_size, icon_size), Image.LANCZOS)
             icon_x = int(x0 + (x1 - x0 - icon_size) / 2)
-            icon_y = int(y0 + (y1 - y0 - icon_size) / 2)
+            icon_y = int(y0 + (cell_size - icon_size) / 2)
             image.paste(resized, (icon_x, icon_y), resized)
 
-        label = label_map.get(building_type, building_type)
-        text_color = text_color_map.get(building_type, default_text_color)
-        text_width = draw.textlength(label, font=font)
-        text_height = font.getbbox(label)[3]
-        text_x = x0 + (x1 - x0 - text_width) / 2
-        text_y = y0 + (y1 - y0 - text_height) / 2
-        draw.text((text_x, text_y), label, fill=text_color, font=font)
+        # label = label_map.get(building_type, building_type)
+        # text_color = text_color_map.get(building_type, default_text_color)
+        # text_width = draw.textlength(label, font=font)
+        # text_height = font.getbbox(label)[3]
+        # text_x = x0 + (x1 - x0 - text_width) / 2
+        # text_y = y0 + (y1 - y0 - text_height) / 2
+        # draw.text((text_x, text_y), label, fill=text_color, font=font)
 
     return image
