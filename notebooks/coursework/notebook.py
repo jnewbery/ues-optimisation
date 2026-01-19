@@ -238,8 +238,13 @@ def _(mo):
         align="center",
         gap=1,
     )
-    controls
-    return controls, show_buildings, show_energy, show_roads
+    mo.vstack(
+        [
+            mo.md("### Layers"),
+            controls
+        ]
+    )
+    return show_buildings, show_energy, show_roads
 
 
 @app.cell
@@ -434,7 +439,7 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
         mode="markers",
         marker={"size": marker_sizes, "opacity": 0.01},
         customdata=marker_customdata,
-        hovertemplate="building_index=%{customdata}<extra></extra>",
+        hovertemplate="cell_index=%{customdata}<extra></extra>",
         name="Building interactions",
         showlegend=False,
     )
@@ -471,7 +476,7 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
 
 
 @app.cell
-def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
+def _(Path, building_metadata, center_lookup, icon_map, mo, plot):
     selected = None
     value = plot.value
     points = []
@@ -483,20 +488,20 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
     selected_point = None
     if points:
         for point in points:
-            if isinstance(point, dict) and "building_index" in point:
+            if isinstance(point, dict) and "cell_index" in point:
                 selected_point = point
                 break
         if selected_point is None:
             selected_point = points[0]
 
     if isinstance(selected_point, dict):
-        building_index = selected_point.get("building_index")
+        cell_index = selected_point.get("cell_index")
         try:
-            building_index = int(building_index)
+            cell_index = int(cell_index)
         except (TypeError, ValueError):
-            building_index = None
-        if isinstance(building_index, int) and building_index < len(building_metadata):
-            selected = building_metadata[building_index]
+            cell_index = None
+        if isinstance(cell_index, int) and cell_index < len(building_metadata):
+            selected = building_metadata[cell_index]
         elif "x" in selected_point and "y" in selected_point:
             key = (round(float(selected_point["x"]), 4), round(float(selected_point["y"]), 4))
             match_index = center_lookup.get(key)
@@ -539,13 +544,7 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
         gap=1,
     )
 
-    mo.vstack(
-        [
-            mo.md("## Town Layout"),
-            controls,
-            layout,
-        ]
-    )
+    layout
     return (selected,)
 
 
