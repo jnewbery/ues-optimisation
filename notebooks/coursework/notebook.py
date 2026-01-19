@@ -473,7 +473,13 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
 @app.cell
 def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
     selected = None
-    points = plot.value or []
+    value = plot.value
+    points = []
+    if isinstance(value, dict):
+        points = value.get("points") or []
+    elif value:
+        points = value
+
     if points:
         point = points[0]
         if isinstance(point, dict):
@@ -481,16 +487,20 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
             if isinstance(custom_index, int) and custom_index < len(building_metadata):
                 selected = building_metadata[custom_index]
             else:
-                point_index = point.get("pointIndex")
-                if point_index is None:
-                    point_index = point.get("pointNumber")
-                if isinstance(point_index, int) and point_index < len(building_metadata):
-                    selected = building_metadata[point_index]
-                elif "x" in point and "y" in point:
-                    key = (round(float(point["x"]), 4), round(float(point["y"]), 4))
-                    match_index = center_lookup.get(key)
-                    if match_index is not None:
-                        selected = building_metadata[match_index]
+                curve_number = point.get("curveNumber")
+                if isinstance(curve_number, int) and curve_number < len(building_metadata):
+                    selected = building_metadata[curve_number]
+                else:
+                    point_index = point.get("pointIndex")
+                    if point_index is None:
+                        point_index = point.get("pointNumber")
+                    if isinstance(point_index, int) and point_index < len(building_metadata):
+                        selected = building_metadata[point_index]
+                    elif "x" in point and "y" in point:
+                        key = (round(float(point["x"]), 4), round(float(point["y"]), 4))
+                        match_index = center_lookup.get(key)
+                        if match_index is not None:
+                            selected = building_metadata[match_index]
 
     if selected is not None:
         icon_file = icon_map.get(selected["type"])
