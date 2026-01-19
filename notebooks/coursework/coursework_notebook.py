@@ -137,7 +137,7 @@ def _(CellType, dataclass):
             thermal_winter_factor=1.5,
         ),
     }
-    return
+    return (DEMAND,)
 
 
 @app.cell
@@ -476,7 +476,7 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
 
 
 @app.cell
-def _(CellType, DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
+def _(DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
     selected = None
     value = plot.value
     points = []
@@ -547,7 +547,7 @@ def _(CellType, DEMAND, Path, building_metadata, center_lookup, icon_map, mo, pl
                 mo.md("### Cell details"),
                 mo.md("Click a cell to see its details."),
             ],
-            align="start",
+            align="center",
         )
 
     layout = mo.hstack(
