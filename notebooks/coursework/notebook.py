@@ -228,7 +228,28 @@ def _(CellType):
 
 
 @app.cell
-def _(Path, base64, go, mo, town_layout):
+def _(mo):
+    show_buildings = mo.ui.checkbox(value=True, label="Buildings")
+    show_rows = mo.ui.checkbox(value=True, label="Rows")
+    show_energy = mo.ui.checkbox(value=False, label="Energy network (stub)")
+
+    controls = mo.hstack([show_buildings, show_rows, show_energy])
+    controls
+    return controls, show_buildings, show_energy, show_rows
+
+
+@app.cell
+def _(
+    Path,
+    base64,
+    controls,
+    go,
+    mo,
+    show_buildings,
+    show_energy,
+    show_rows,
+    town_layout,
+):
     image_dir = Path("notebooks") / "coursework" / "img"
 
     def icon_data_uri(filename: str) -> str:
@@ -256,7 +277,7 @@ def _(Path, base64, go, mo, town_layout):
         "low density housing": "rgb(255, 178, 220)",
         "medium density housing": "rgb(255, 0, 255)",
         "high density housing": "rgb(220, 25, 25)",
-        "green space": "rgb(196, 234, 214)",
+        "green space": "rgb(20, 163, 58)",
         "potential energy centre": "rgb(20, 20, 20)",
         "open space": "rgb(210, 210, 210)",
         "hospital": "rgb(0, 204, 255)",
@@ -264,10 +285,6 @@ def _(Path, base64, go, mo, town_layout):
         "school": "rgb(160, 70, 20)",
         "office": "rgb(255, 255, 0)",
     }
-
-    show_buildings = mo.ui.checkbox(value=True, label="Buildings")
-    show_rows = mo.ui.checkbox(value=True, label="Rows")
-    show_energy = mo.ui.checkbox(value=False, label="Energy network (stub)")
 
     max_x = max(building["x_max"] for building in town_layout)
     max_y = max(building["y_max"] for building in town_layout)
@@ -294,7 +311,7 @@ def _(Path, base64, go, mo, town_layout):
                 y=[y0, y0, y1, y1, y0],
                 fill="toself",
                 mode="lines",
-                line={"color": "rgb(90, 90, 90)"},
+                line={"color": "rgb(90, 90, 90)", "width":1},
                 fillcolor=fill_color.replace("rgb", "rgba").replace(")", ", 0.8)"),
                 hovertemplate=hover + "<extra></extra>",
                 name="Buildings",
@@ -356,7 +373,7 @@ def _(Path, base64, go, mo, town_layout):
         fig.add_traces(energy_traces)
 
     fig.update_layout(
-        title="Coursework town layout",
+        title="Town layout",
         xaxis={
             "visible": False,
             "range": [0, max_x],
@@ -371,10 +388,9 @@ def _(Path, base64, go, mo, town_layout):
         legend={"orientation": "h"},
     )
 
-    controls = mo.hstack([show_buildings, show_rows, show_energy])
     mo.vstack(
         [
-            mo.md("## Coursework town layout"),
+            mo.md("## Town Layout"),
             controls,
             mo.ui.plotly(fig),
         ]
