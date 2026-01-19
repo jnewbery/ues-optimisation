@@ -278,6 +278,7 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
     marker_y = []
     marker_sizes = []
     marker_customdata = []
+
     for idx, building in enumerate(town_layout):
         building_type = building["type"].value
         x0 = building["x_min"]
@@ -385,7 +386,6 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
     fig.update_layout(
         title="Town layout",
         clickmode="event+select",
-        dragmode="select",
         xaxis={
             "visible": False,
             "range": [0, max_x],
@@ -447,7 +447,7 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
             icon_view = mo.md("")
         info_panel = mo.vstack(
             [
-                mo.md("### Building details"),
+                mo.md("### Cell details"),
                 icon_view,
                 mo.md(f"**Type:** {selected['type']}"),
                 mo.md(
@@ -455,13 +455,13 @@ def _(Path, building_metadata, center_lookup, controls, icon_map, mo, plot):
                     f"y={selected['y_min']}-{selected['y_max']}"
                 ),
             ],
-            align="start",
+            align="center",
         )
     else:
         info_panel = mo.vstack(
             [
-                mo.md("### Building details"),
-                mo.md("Click a building to see its details."),
+                mo.md("### Cell details"),
+                mo.md("Click a cell to see its details."),
             ],
             align="start",
         )
