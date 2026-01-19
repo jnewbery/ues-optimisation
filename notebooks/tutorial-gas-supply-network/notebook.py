@@ -22,8 +22,6 @@ def _():
         render_network_diagram,
     )
     return (
-        CellData,
-        GasNetworkData,
         Path,
         build_and_solve_model,
         build_solution_grid,
@@ -36,7 +34,7 @@ def _():
 
 @app.cell
 def _(Path, load_data_from_json):
-    base_data = load_data_from_json(Path("files/base_case.json"))
+    base_data = load_data_from_json(Path("notebooks/tutorial-gas-supply-network/base_case.json"))
     return (base_data,)
 
 
