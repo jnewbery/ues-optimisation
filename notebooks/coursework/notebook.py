@@ -229,21 +229,21 @@ def _(CellType):
 @app.cell
 def _(mo):
     show_buildings = mo.ui.checkbox(value=True, label="Buildings")
-    show_rows = mo.ui.checkbox(value=True, label="Rows")
+    show_roads = mo.ui.checkbox(value=True, label="Roads")
     show_energy = mo.ui.checkbox(value=False, label="Energy network (stub)")
 
     controls = mo.hstack(
-        [show_buildings, show_rows, show_energy],
+        [show_buildings, show_roads, show_energy],
         justify="start",
         align="center",
         gap=1,
     )
     controls
-    return controls, show_buildings, show_energy, show_rows
+    return controls, show_buildings, show_energy, show_roads
 
 
 @app.cell
-def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
+def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
     icon_map = {
         "low density housing": "housing-low-density.png",
         "medium density housing": "housing-med-density.png",
@@ -316,18 +316,39 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
             )
         )
 
-    row_traces = []
-    for y_index in range(max_y + 1):
-        row_traces.append(
+    road_edges = [
+        # Each entry is a pair of grid-intersection coordinates that describe a
+        # road segment between adjacent cells, e.g. ((x0, y0), (x1, y1)).
+        # Fill this with the actual road network.
+        # Example horizontal road: ((2, 3), (3, 3))
+        # Example vertical road: ((5, 7), (5, 8))
+    ]
+
+    road_traces = []
+    for idx, ((x0, y0), (x1, y1)) in enumerate(road_edges):
+        road_traces.append(
             go.Scatter(
-                x=[0, max_x],
-                y=[y_index, y_index],
+                x=[x0, x1],
+                y=[y0, y1],
                 mode="lines",
-                line={"color": "rgba(60, 60, 60, 0.25)", "width": 1},
+                line={"color": "rgb(0, 0, 0)", "width": 2},
                 hoverinfo="skip",
-                name="Rows",
-                legendgroup="rows",
-                showlegend=y_index == 0,
+                name="Roads",
+                legendgroup="roads",
+                showlegend=idx == 0,
+            )
+        )
+    if not road_traces:
+        road_traces.append(
+            go.Scatter(
+                x=[],
+                y=[],
+                mode="lines",
+                line={"color": "rgb(0, 0, 0)", "width": 2},
+                hoverinfo="skip",
+                name="Roads",
+                legendgroup="roads",
+                showlegend=True,
             )
         )
 
@@ -374,8 +395,8 @@ def _(go, mo, show_buildings, show_energy, show_rows, town_layout):
     if show_buildings.value:
         fig.add_traces(building_traces)
         fig.add_trace(building_interaction_trace)
-    if show_rows.value:
-        fig.add_traces(row_traces)
+    if show_roads.value:
+        fig.add_traces(road_traces)
     if show_energy.value:
         fig.add_traces(energy_traces)
 
