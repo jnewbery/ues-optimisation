@@ -147,7 +147,7 @@ def _(CellType, dataclass):
 def _(mo):
     layout_selector = mo.ui.dropdown(
         options={
-            "Tiny test": "town_layout_simple.json",
+            "Tiny test": "town_layout_tiny.json",
             "Medium test": "town_layout_medium.json",
             "Full town": "town_layout.json",
         },
@@ -486,8 +486,7 @@ def _(building_demands, mo, optimisation_result):
         for building in building_demands
     ]
     demand_table = mo.ui.table(demand_rows)
-    mo.vstack([status_md, mo.md("**Winter building demand**"), demand_table])
-    return
+    return demand_table, status_md
 
 
 @app.cell
@@ -761,6 +760,12 @@ def _(DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
     )
 
     layout
+    return
+
+
+@app.cell
+def _(demand_table, mo, status_md):
+    mo.vstack([status_md, mo.md("**Winter building demand**"), demand_table])
     return
 
 
