@@ -468,7 +468,7 @@ def _(building_demands, mo, optimisation_result):
     objective = optimisation_result["objective_value"]
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
-        f"**Objective value:** {objective}"
+        f"**Objective value:** £{round(objective, 2)}"
     )
     demand_rows = [
         {
@@ -606,7 +606,7 @@ def _(
                 x=[x0, x1],
                 y=[y0, y1],
                 mode="lines",
-                line={"color": "rgb(20, 20, 20)", "width": 3},
+                line={"color": "rgb(255, 0, 0)", "width": 3},
                 hoverinfo="skip",
                 name="Energy network",
                 legendgroup="energy",
@@ -619,7 +619,7 @@ def _(
                 x=[],
                 y=[],
                 mode="lines",
-                line={"color": "rgb(20, 20, 20)", "width": 3},
+                line={"color": "rgb(255, 0, 0)", "width": 3},
                 hoverinfo="skip",
                 name="Energy network",
                 legendgroup="energy",
@@ -663,7 +663,7 @@ def _(
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
         width=int(max_x * cell_size + 80),
         height=int(max_y * cell_size + 80),
-        legend={"orientation": "h"},
+        showlegend=False,
     )
     plot = mo.ui.plotly(fig)
     return building_metadata, center_lookup, icon_map, plot
