@@ -6,7 +6,6 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
-    from dataclasses import dataclass
     import enum
     import json
     import math
@@ -15,7 +14,8 @@ def _():
     import marimo as mo
     from ortools.linear_solver import pywraplp
     import plotly.graph_objects as go
-    return Path, dataclass, enum, go, json, math, mo, pywraplp
+    from constants import DEMAND
+    return DEMAND, Path, enum, go, json, math, mo, pywraplp
 
 
 @app.cell
@@ -32,115 +32,6 @@ def _(enum):
         O = "open space"
         G = "green space"
     return (CellType,)
-
-
-@app.cell
-def _(CellType, dataclass):
-    # Constants
-    GAS_PRICE_DOMESTIC_P_KWH = 6
-    GAS_PRICE_COMMERCIAL_P_KWH = 9
-    ELECTRICITY_PRICE_DOMESTIC_P_KWH = 28
-    ELECTRICITY_PRICE_COMMERCIAL_P_KWH = 30
-    ELECTRICITY_EXPORT_DOMESTIC_P_KWH = 6
-    ELECTRICITY_EXPORT_COMMERCIAL_P_KWH = 18
-    HEAT_NETWORK_PIPE_COST_METER = 1000 * 100  # £1000 per meter
-    HEAT_NETWORK_CONNECTION_COST_BUILDING = 1700 * 100  # £1700 per connection
-
-    @dataclass
-    class DemandData:
-        electricity_demand_kwh_year: int
-        electricity_summer_factor: float
-        electricity_mid_factor: float
-        electricity_winter_factor: float
-        thermal_demand_kwh_year: int
-        thermal_summer_factor: float
-        thermal_mid_factor: float
-        thermal_winter_factor: float
-
-    _SINGLE_HOUSEHOLD_DEMAND = DemandData(
-        electricity_demand_kwh_year=3200,
-        electricity_summer_factor=0.8,
-        electricity_mid_factor=1.0,
-        electricity_winter_factor=1.2,
-        thermal_demand_kwh_year=11200,
-        thermal_summer_factor=0.5,
-        thermal_mid_factor=1.0,
-        thermal_winter_factor=1.5
-    )
-
-    DEMAND = {
-        CellType.H20: DemandData(
-            electricity_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.electricity_demand_kwh_year * 20,
-            electricity_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_summer_factor,
-            electricity_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_mid_factor,
-            electricity_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_winter_factor,
-            thermal_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.thermal_demand_kwh_year * 20,
-            thermal_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_summer_factor,
-            thermal_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_mid_factor,
-            thermal_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_winter_factor
-        ),
-        CellType.H30: DemandData(
-            electricity_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.electricity_demand_kwh_year * 30,
-            electricity_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_summer_factor,
-            electricity_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_mid_factor,
-            electricity_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_winter_factor,
-            thermal_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.thermal_demand_kwh_year * 30,
-            thermal_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_summer_factor,
-            thermal_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_mid_factor,
-            thermal_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_winter_factor
-        ),
-        CellType.H40: DemandData(
-            electricity_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.electricity_demand_kwh_year * 40,
-            electricity_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_summer_factor,
-            electricity_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_mid_factor,
-            electricity_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.electricity_winter_factor,
-            thermal_demand_kwh_year=_SINGLE_HOUSEHOLD_DEMAND.thermal_demand_kwh_year * 40,
-            thermal_summer_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_summer_factor,
-            thermal_mid_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_mid_factor,
-            thermal_winter_factor=_SINGLE_HOUSEHOLD_DEMAND.thermal_winter_factor
-        ),
-        CellType.SCH: DemandData(
-            electricity_demand_kwh_year=147000,
-            electricity_summer_factor=0.7,
-            electricity_mid_factor=1.1,
-            electricity_winter_factor=1.1,
-            thermal_demand_kwh_year=617000,
-            thermal_summer_factor=0.15,
-            thermal_mid_factor=1.0,
-            thermal_winter_factor=1.85,
-        ),
-        CellType.SC: DemandData(
-            electricity_demand_kwh_year=14726250,
-            electricity_summer_factor=1.3,
-            electricity_mid_factor=1.0,
-            electricity_winter_factor=0.7,
-            thermal_demand_kwh_year=4908750,
-            thermal_summer_factor=0.25,
-            thermal_mid_factor=1.0,
-            thermal_winter_factor=1.75,
-        ),
-        CellType.H: DemandData(
-            electricity_demand_kwh_year=675000,
-            electricity_summer_factor=1.3,
-            electricity_mid_factor=1.0,
-            electricity_winter_factor=0.7,
-            thermal_demand_kwh_year=2250000,
-            thermal_summer_factor=0.35,
-            thermal_mid_factor=1.0,
-            thermal_winter_factor=1.65,
-        ),
-        CellType.OF: DemandData(
-            electricity_demand_kwh_year=2600000,
-            electricity_summer_factor=0.8,
-            electricity_mid_factor=1.0,
-            electricity_winter_factor=1.2,
-            thermal_demand_kwh_year=6200000,
-            thermal_summer_factor=0.5,
-            thermal_mid_factor=1.0,
-            thermal_winter_factor=1.5,
-        ),
-    }
-    return (DEMAND,)
 
 
 @app.cell
@@ -295,7 +186,7 @@ def _(CellType, DEMAND, grid_layout, town_layout):
     building_demands = []
     for building_index, _building in enumerate(town_layout):
         _building_type = _building["type"]
-        _demand = DEMAND.get(_building_type)
+        _demand = DEMAND.get(_building_type.name)
         if _demand is None:
             continue
         footprint = [
@@ -466,9 +357,10 @@ def _(
 def _(building_demands, mo, optimisation_result):
     _status = optimisation_result["status"]
     objective = optimisation_result["objective_value"]
+    objective_str = f"£{round(objective, 2)}" if objective else "None"
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
-        f"**Objective value:** £{round(objective, 2)}"
+        f"**Objective value:** {objective_str}"
     )
     demand_rows = [
         {
@@ -670,7 +562,16 @@ def _(
 
 
 @app.cell
-def _(DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
+def _(
+    CellType,
+    DEMAND,
+    Path,
+    building_metadata,
+    center_lookup,
+    icon_map,
+    mo,
+    plot,
+):
     selected = None
     value = plot.value
     points = []
@@ -703,7 +604,11 @@ def _(DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
                 selected = building_metadata[match_index]
 
     if selected is not None:
-        demand_by_label = {cell_type.value: demand for cell_type, demand in DEMAND.items()}
+        demand_by_label = {
+            CellType[key].value: demand
+            for key, demand in DEMAND.items()
+            if key in CellType.__members__
+        }
         demand = demand_by_label.get(selected["type"])
         if demand:
             winter_thermal = demand.thermal_demand_kwh_year * demand.thermal_winter_factor
