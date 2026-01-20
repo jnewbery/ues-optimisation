@@ -148,6 +148,7 @@ def _(mo):
     layout_selector = mo.ui.dropdown(
         options={
             "Tiny test": "town_layout_tiny.json",
+            "Small test": "town_layout_small.json",
             "Medium test": "town_layout_medium.json",
             "Full town": "town_layout.json",
         },
@@ -777,11 +778,6 @@ def _(mo, optimisation_result):
             optimisation_result
         ]
     )
-    return
-
-
-@app.cell
-def _():
     return
 
 
