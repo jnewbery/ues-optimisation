@@ -6,13 +6,15 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
-    import marimo as mo
-    from pathlib import Path
     from dataclasses import dataclass
     import enum
+    import math
+    from pathlib import Path
 
+    import marimo as mo
+    from ortools.linear_solver import pywraplp
     import plotly.graph_objects as go
-    return Path, dataclass, enum, go, mo
+    return Path, dataclass, enum, go, math, mo, pywraplp
 
 
 @app.cell
@@ -159,10 +161,54 @@ def _(CellType):
     ]
 
 
-    def resolve_cell_type(cell: str) -> CellType:
-        if cell == "SH":
-            return CellType.SC
-        return CellType[cell]
+    road_edges = [
+        # Each entry is a pair of grid-intersection coordinates that describe a
+        # road segment between adjacent cells, e.g. ((x0, y0), (x1, y1)).
+        ((1, 0), (1, 1)),
+        ((1, 1), (1, 2)),
+        ((1, 2), (1, 3)),
+        ((1, 3), (1, 4)),
+        ((1, 4), (1, 5)),
+        ((1, 5), (1, 6)),
+        ((1, 6), (1, 7)),
+        ((1, 7), (1, 8)),
+        ((1, 8), (1, 9)),
+        ((6, 0), (6, 1)),
+        ((6, 1), (6, 2)),
+        ((6, 2), (6, 3)),
+        ((6, 3), (6, 4)),
+        ((6, 4), (6, 5)),
+        ((6, 5), (6, 6)),
+        ((6, 6), (6, 7)),
+        ((6, 7), (6, 8)),
+        ((6, 8), (6, 9)),
+        ((6, 9), (6, 10)),
+        ((6, 10), (6, 11)),
+        ((6, 11), (6, 12)),
+        ((6, 12), (6, 13)),
+        ((9, 0), (9, 1)),
+        ((9, 1), (9, 2)),
+        ((9, 2), (9, 3)),
+        ((9, 3), (9, 4)),
+        ((9, 4), (9, 5)),
+        ((9, 5), (9, 6)),
+        ((9, 6), (9, 7)),
+        ((9, 7), (9, 8)),
+        ((9, 8), (9, 9)),
+        ((9, 9), (9, 10)),
+        ((0, 9), (1, 9)),
+        ((1, 9), (2, 9)),
+        ((2, 9), (3, 9)),
+        ((3, 9), (4, 9)),
+        ((4, 9), (5, 9)),
+        ((5, 9), (6, 9)),
+        ((6, 9), (7, 9)),
+        ((7, 9), (8, 9)),
+        ((8, 9), (9, 9)),
+        ((9, 9), (10, 9)),
+        ((10, 9), (11, 9)),
+        ((11, 9), (12, 9)),
+    ]
 
     merge_types = {"H", "OF", "SCH", "SC"}
     town_layout = []
@@ -223,7 +269,27 @@ def _(CellType):
                         "type": CellType[_cell],
                     }
                 )
-    return grid_layout, town_layout
+    return grid_layout, road_edges, town_layout
+
+
+@app.cell
+def _(mo):
+    param_form = (
+        mo.md(
+            """
+            Energy centre build cost (£): {cost_energy_center}
+
+            Pipe cost per unit length (£): {cost_pipe}
+            """
+        )
+        .batch(
+            cost_energy_center=mo.ui.number(value=2_000_000.0, step=100_000.0),
+            cost_pipe=mo.ui.number(value=100_000.0, step=10_000.0),
+        )
+        .form(submit_button_label="Run optimisation", label="Model Parameters")
+    )
+    param_form
+    return (param_form,)
 
 
 @app.cell
@@ -245,26 +311,6 @@ def _(mo):
         ]
     )
     return show_buildings, show_energy, show_roads
-
-
-@app.cell
-def _(mo):
-    param_form = (
-        mo.md(
-            """
-            Energy centre build cost (£): {cost_energy_center}
-
-            Pipe cost per unit length (£): {cost_pipe}
-            """
-        )
-        .batch(
-            cost_energy_center=mo.ui.number(value=2_000_000.0, step=100_000.0),
-            cost_pipe=mo.ui.number(value=100_000.0, step=10_000.0),
-        )
-        .form(submit_button_label="Run optimisation", label="Model Parameters")
-    )
-    param_form
-    return (param_form,)
 
 
 @app.cell
@@ -311,11 +357,14 @@ def _(CellType, DEMAND, grid_layout, town_layout):
 
 
 @app.cell
-def _(building_demands, cells, energy_center_cells, grid_layout, param_form):
-    import math
-
-    from ortools.linear_solver import pywraplp
-
+def _(
+    building_demands,
+    cells,
+    energy_center_cells,
+    math,
+    param_form,
+    pywraplp,
+):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
@@ -452,6 +501,7 @@ def _(building_demands, cells, energy_center_cells, grid_layout, param_form):
             }
 
     optimisation_result
+    return (optimisation_result,)
 
 
 @app.cell
@@ -480,6 +530,7 @@ def _(
     go,
     mo,
     optimisation_result,
+    road_edges,
     show_buildings,
     show_energy,
     show_roads,
@@ -561,58 +612,6 @@ def _(
                 showlegend=idx == 0,
             )
         )
-
-    road_edges = [
-        # Each entry is a pair of grid-intersection coordinates that describe a
-        # road segment between adjacent cells, e.g. ((x0, y0), (x1, y1)).
-        # Fill this with the actual road network.
-        # Example horizontal road: ((2, 3), (3, 3))
-        # Example vertical road: ((5, 7), (5, 8))
-        ((1, 0), (1, 1)),
-        ((1, 1), (1, 2)),
-        ((1, 2), (1, 3)),
-        ((1, 3), (1, 4)),
-        ((1, 4), (1, 5)),
-        ((1, 5), (1, 6)),
-        ((1, 6), (1, 7)),
-        ((1, 7), (1, 8)),
-        ((1, 8), (1, 9)),
-        ((6, 0), (6, 1)),
-        ((6, 1), (6, 2)),
-        ((6, 2), (6, 3)),
-        ((6, 3), (6, 4)),
-        ((6, 4), (6, 5)),
-        ((6, 5), (6, 6)),
-        ((6, 6), (6, 7)),
-        ((6, 7), (6, 8)),
-        ((6, 8), (6, 9)),
-        ((6, 9), (6, 10)),
-        ((6, 10), (6, 11)),
-        ((6, 11), (6, 12)),
-        ((6, 12), (6, 13)),
-        ((9, 0), (9, 1)),
-        ((9, 1), (9, 2)),
-        ((9, 2), (9, 3)),
-        ((9, 3), (9, 4)),
-        ((9, 4), (9, 5)),
-        ((9, 5), (9, 6)),
-        ((9, 6), (9, 7)),
-        ((9, 7), (9, 8)),
-        ((9, 8), (9, 9)),
-        ((9, 9), (9, 10)),
-        ((0, 9), (1, 9)),
-        ((1, 9), (2, 9)),
-        ((2, 9), (3, 9)),
-        ((3, 9), (4, 9)),
-        ((4, 9), (5, 9)),
-        ((5, 9), (6, 9)),
-        ((6, 9), (7, 9)),
-        ((7, 9), (8, 9)),
-        ((8, 9), (9, 9)),
-        ((9, 9), (10, 9)),
-        ((10, 9), (11, 9)),
-        ((11, 9), (12, 9)),
-    ]
 
     road_traces = []
     for idx, ((x0, y0), (x1, y1)) in enumerate(road_edges):
