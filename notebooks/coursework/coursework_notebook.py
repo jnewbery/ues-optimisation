@@ -376,11 +376,6 @@ def _(
             _cell: solver.BoolVar(f"build_ec[{_cell}]")
             for _cell in energy_center_cells
         }
-        generation = {
-            _cell: solver.NumVar(0.0, solver.infinity(), f"gen[{_cell}]")
-            for _cell in energy_center_cells
-        }
-
         assignment = {}
         for _building in building_demands:
             for _cell in _building["footprint"]:
@@ -402,9 +397,6 @@ def _(
             solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
             solver.Add(flow[(j, i)] <= big_m * pipe_binary[(i, j)])
 
-        for _cell in energy_center_cells:
-            solver.Add(generation[_cell] <= big_m * build_center[_cell])
-
         for _cell in cells:
             inflow = solver.Sum(
                 flow[(neighbor, _cell)] for neighbor in neighbors_by_cell[_cell]
@@ -417,7 +409,7 @@ def _(
                 for _building in building_demands
                 if _cell in _building["footprint"]
             )
-            generated = generation.get(_cell, 0.0)
+            generated = _total_demand * build_center.get(_cell, 0.0)
             solver.Add(inflow + generated - outflow - _demand >= 0)
 
         objective_terms = []
