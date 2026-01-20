@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.19.4"
 app = marimo.App(width="medium")
 
 
@@ -8,13 +8,14 @@ app = marimo.App(width="medium")
 def _():
     from dataclasses import dataclass
     import enum
+    import json
     import math
     from pathlib import Path
 
     import marimo as mo
     from ortools.linear_solver import pywraplp
     import plotly.graph_objects as go
-    return Path, dataclass, enum, go, math, mo, pywraplp
+    return Path, dataclass, enum, go, json, math, mo, pywraplp
 
 
 @app.cell
@@ -143,71 +144,34 @@ def _(CellType, dataclass):
 
 
 @app.cell
-def _(CellType):
-    grid_layout = [
-        [ "H20", "H20", "H20", "H20", "H20", "H20",   "G", "H20", "H20",   "H",   "H",   "H"],
-        [ "H20", "H30", "H30", "H30", "H30", "H30",   "G", "H20", "H20",   "H",   "H",   "H"],
-        [ "H20", "H30",   "G",   "G", "H30", "H30",   "G",   "G",   "G",   "G",   "G", "H20"],
-        [ "H20", "H30", "H30", "H30", "H30", "H30",   "G",   "G",   "G",   "G",   "G", "H20"],
-        [ "H20", "H30", "H40", "H40", "H40", "H40", "H30", "H30", "H30", "H30",   "G", "H20"],
-        [ "H20", "H30",   "G",   "G",  "SC",  "SC", "H30", "H30", "H30", "H30",   "G", "H20"],
-        [ "H20", "H30",  "EC",   "O",  "SC",  "SC",   "O", "H30", "H30", "H30", "H30", "H20"],
-        [ "H20",   "O",  "EC",   "O",  "SC",  "SC",   "O", "H20", "H20", "H20", "H20", "H20"],
-        [ "H20",   "O",   "O",   "O",  "SC",  "SC",   "O",   "O",  "EC",  "EC",   "O", "H20"],
-        [ "H20", "H20",   "O",   "O",  "OF",  "OF",   "O",   "O",   "O",   "O",   "O", "H20"],
-        [ "H20", "H20", "H20", "H20",  "OF",  "OF",   "O", "SCH", "SCH",   "G",   "G", "H20"],
-        [  "EC",  "EC", "H20", "H20", "H20", "H20",   "O", "SCH", "SCH",   "G",   "G", "H20"],
-        [  "EC",  "EC", "H20", "H20", "H30", "H30", "H20", "H20",   "G",   "G",   "G", "H20"],
-    ]
+def _(mo):
+    layout_selector = mo.ui.dropdown(
+        options={
+            "Tiny test": "town_layout_simple.json",
+            "Medium test": "town_layout_medium.json",
+            "Full town": "town_layout.json",
+        },
+        value="Full town",
+        label="Layout file",
+    )
+    mo.vstack([mo.md("### Layout"), layout_selector])
+    return (layout_selector,)
 
 
+@app.cell
+def _(CellType, Path, json, layout_selector):
+    layout_path = (
+        Path("notebooks")
+        / "coursework"
+        / "data"
+        / layout_selector.value
+    )
+    with layout_path.open() as handle:
+        layout_data = json.load(handle)
+    grid_layout = layout_data["grid_layout"]
     road_edges = [
-        # Each entry is a pair of grid-intersection coordinates that describe a
-        # road segment between adjacent cells, e.g. ((x0, y0), (x1, y1)).
-        ((1, 0), (1, 1)),
-        ((1, 1), (1, 2)),
-        ((1, 2), (1, 3)),
-        ((1, 3), (1, 4)),
-        ((1, 4), (1, 5)),
-        ((1, 5), (1, 6)),
-        ((1, 6), (1, 7)),
-        ((1, 7), (1, 8)),
-        ((1, 8), (1, 9)),
-        ((6, 0), (6, 1)),
-        ((6, 1), (6, 2)),
-        ((6, 2), (6, 3)),
-        ((6, 3), (6, 4)),
-        ((6, 4), (6, 5)),
-        ((6, 5), (6, 6)),
-        ((6, 6), (6, 7)),
-        ((6, 7), (6, 8)),
-        ((6, 8), (6, 9)),
-        ((6, 9), (6, 10)),
-        ((6, 10), (6, 11)),
-        ((6, 11), (6, 12)),
-        ((6, 12), (6, 13)),
-        ((9, 0), (9, 1)),
-        ((9, 1), (9, 2)),
-        ((9, 2), (9, 3)),
-        ((9, 3), (9, 4)),
-        ((9, 4), (9, 5)),
-        ((9, 5), (9, 6)),
-        ((9, 6), (9, 7)),
-        ((9, 7), (9, 8)),
-        ((9, 8), (9, 9)),
-        ((9, 9), (9, 10)),
-        ((0, 9), (1, 9)),
-        ((1, 9), (2, 9)),
-        ((2, 9), (3, 9)),
-        ((3, 9), (4, 9)),
-        ((4, 9), (5, 9)),
-        ((5, 9), (6, 9)),
-        ((6, 9), (7, 9)),
-        ((7, 9), (8, 9)),
-        ((8, 9), (9, 9)),
-        ((9, 9), (10, 9)),
-        ((10, 9), (11, 9)),
-        ((11, 9), (12, 9)),
+        (tuple(edge[0]), tuple(edge[1]))
+        for edge in layout_data["road_edges"]
     ]
 
     merge_types = {"H", "OF", "SCH", "SC"}
@@ -502,7 +466,6 @@ def _(
             cost_energy_center=float(submitted["cost_energy_center"]),
             cost_pipe=float(submitted["cost_pipe"]),
         )
-    optimisation_result
     return (optimisation_result,)
 
 
@@ -798,12 +761,22 @@ def _(DEMAND, Path, building_metadata, center_lookup, icon_map, mo, plot):
     )
 
     layout
-    return (selected,)
+    return
 
 
 @app.cell
-def _(selected):
-    print(selected)
+def _(mo, optimisation_result):
+    mo.vstack(
+        [
+            mo.md("##Optimisation Result"),
+            optimisation_result
+        ]
+    )
+    return
+
+
+@app.cell
+def _():
     return
 
 
