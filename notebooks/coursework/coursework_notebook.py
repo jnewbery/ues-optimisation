@@ -169,9 +169,9 @@ def _(CellType):
     visited = set()
     _max_y = len(grid_layout)
 
-    for _y_index, row in enumerate(grid_layout):
-        for _x_index, cell in enumerate(row):
-            if cell in merge_types:
+    for _y_index, _row in enumerate(grid_layout):
+        for _x_index, _cell in enumerate(_row):
+            if _cell in merge_types:
                 if (_x_index, _y_index) in visited:
                     continue
 
@@ -180,13 +180,13 @@ def _(CellType):
                 component = []
 
                 while stack:
-                    x_cell, y_cell = stack.pop()
-                    component.append((x_cell, y_cell))
+                    _x_cell, _y_cell = stack.pop()
+                    component.append((_x_cell, _y_cell))
                     neighbors = (
-                        (x_cell - 1, y_cell),
-                        (x_cell + 1, y_cell),
-                        (x_cell, y_cell - 1),
-                        (x_cell, y_cell + 1),
+                        (_x_cell - 1, _y_cell),
+                        (_x_cell + 1, _y_cell),
+                        (_x_cell, _y_cell - 1),
+                        (_x_cell, _y_cell + 1),
                     )
                     for x_next, y_next in neighbors:
                         if not (0 <= y_next < _max_y):
@@ -195,7 +195,7 @@ def _(CellType):
                             continue
                         if (x_next, y_next) in visited:
                             continue
-                        if grid_layout[y_next][x_next] != cell:
+                        if grid_layout[y_next][x_next] != _cell:
                             continue
                         visited.add((x_next, y_next))
                         stack.append((x_next, y_next))
@@ -210,7 +210,7 @@ def _(CellType):
                         "x_max": _x_max,
                         "y_min": _y_min,
                         "y_max": _y_max,
-                        "type": CellType[cell],
+                        "type": CellType[_cell],
                     }
                 )
             else:
@@ -220,7 +220,7 @@ def _(CellType):
                         "x_max": _x_index + 1,
                         "y_min": _y_index,
                         "y_max": _y_index + 1,
-                        "type": CellType[cell],
+                        "type": CellType[_cell],
                     }
                 )
     return grid_layout, town_layout
@@ -271,37 +271,39 @@ def _(mo):
 def _(CellType, DEMAND, grid_layout, town_layout):
     cells = [
         (x_index, y_index)
-        for y_index, row in enumerate(grid_layout)
-        for x_index, _ in enumerate(row)
+        for y_index, _row in enumerate(grid_layout)
+        for x_index, _ in enumerate(_row)
     ]
-    cell_set = set(cells)
+    _cell_set = set(cells)
     energy_center_cells = [
         (x_index, y_index)
-        for y_index, row in enumerate(grid_layout)
-        for x_index, cell in enumerate(row)
-        if cell == CellType.EC.name
+        for y_index, _row in enumerate(grid_layout)
+        for x_index, _cell in enumerate(_row)
+        if _cell == CellType.EC.name
     ]
     building_demands = []
-    for building_index, building in enumerate(town_layout):
-        building_type = building["type"]
-        demand = DEMAND.get(building_type)
-        if demand is None:
+    for building_index, _building in enumerate(town_layout):
+        _building_type = _building["type"]
+        _demand = DEMAND.get(_building_type)
+        if _demand is None:
             continue
         footprint = [
             (x_cell, y_cell)
-            for x_cell in range(building["x_min"], building["x_max"])
-            for y_cell in range(building["y_min"], building["y_max"])
-            if (x_cell, y_cell) in cell_set
+            for x_cell in range(_building["x_min"], _building["x_max"])
+            for y_cell in range(_building["y_min"], _building["y_max"])
+            if (x_cell, y_cell) in _cell_set
         ]
         if not footprint:
             continue
-        winter_thermal = demand.thermal_demand_kwh_year * demand.thermal_winter_factor
-        total_demand = winter_thermal * len(footprint)
+        _winter_thermal = (
+            _demand.thermal_demand_kwh_year * _demand.thermal_winter_factor
+        )
+        _total_demand = _winter_thermal * len(footprint)
         building_demands.append(
             {
                 "id": building_index,
-                "type": building_type.value,
-                "demand": total_demand,
+                "type": _building_type.value,
+                "demand": _total_demand,
                 "footprint": footprint,
             }
         )
@@ -322,136 +324,138 @@ def _(building_demands, cells, energy_center_cells, grid_layout, param_form):
         cost_energy_center = float(submitted["cost_energy_center"])
         cost_pipe = float(submitted["cost_pipe"])
 
-    total_demand = sum(building["demand"] for building in building_demands)
-    if total_demand == 0:
-        return {
+    _total_demand = sum(building["demand"] for building in building_demands)
+    if _total_demand == 0:
+        optimisation_result = {
             "status": "no-demand",
             "objective_value": 0.0,
             "energy_edges": [],
             "pipe_binary": {},
         }
+    else:
+        _cell_set = set(cells)
+        neighbor_deltas = [
+            (dx, dy)
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            if not (dx == 0 and dy == 0)
+        ]
+        edges = []
+        neighbors_by_cell = {_cell: [] for _cell in cells}
+        for _x_cell, _y_cell in cells:
+            for dx, dy in neighbor_deltas:
+                nx = _x_cell + dx
+                ny = _y_cell + dy
+                if (nx, ny) not in _cell_set:
+                    continue
+                neighbors_by_cell[(_x_cell, _y_cell)].append((nx, ny))
+                if (_x_cell, _y_cell) < (nx, ny):
+                    edges.append(((_x_cell, _y_cell), (nx, ny)))
 
-    cell_set = set(cells)
-    neighbor_deltas = [
-        (dx, dy)
-        for dx in (-1, 0, 1)
-        for dy in (-1, 0, 1)
-        if not (dx == 0 and dy == 0)
-    ]
-    edges = []
-    neighbors_by_cell = {cell: [] for cell in cells}
-    for x_cell, y_cell in cells:
-        for dx, dy in neighbor_deltas:
-            nx = x_cell + dx
-            ny = y_cell + dy
-            if (nx, ny) not in cell_set:
+        solver = pywraplp.Solver.CreateSolver("SCIP")
+        if solver is None:
+            raise RuntimeError("Failed to create OR-Tools solver.")
+
+        pipe_binary = {
+            (i, j): solver.BoolVar(f"pipe[{i},{j}]")
+            for i, j in edges
+        }
+        flow = {}
+        for i, j in edges:
+            flow[(i, j)] = solver.NumVar(0.0, solver.infinity(), f"flow[{i},{j}]")
+            flow[(j, i)] = solver.NumVar(0.0, solver.infinity(), f"flow[{j},{i}]")
+
+        build_center = {
+            _cell: solver.BoolVar(f"build_ec[{_cell}]")
+            for _cell in energy_center_cells
+        }
+        generation = {
+            _cell: solver.NumVar(0.0, solver.infinity(), f"gen[{_cell}]")
+            for _cell in energy_center_cells
+        }
+
+        assignment = {}
+        for _building in building_demands:
+            for _cell in _building["footprint"]:
+                assignment[(_building["id"], _cell)] = solver.BoolVar(
+                    f"assign[{_building['id']},{_cell}]"
+                )
+
+        for _building in building_demands:
+            solver.Add(
+                solver.Sum(
+                    assignment[(_building["id"], _cell)]
+                    for _cell in _building["footprint"]
+                )
+                == 1
+            )
+
+        big_m = _total_demand
+        for i, j in edges:
+            solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
+            solver.Add(flow[(j, i)] <= big_m * pipe_binary[(i, j)])
+
+        for _cell in energy_center_cells:
+            solver.Add(generation[_cell] <= big_m * build_center[_cell])
+
+        for _cell in cells:
+            inflow = solver.Sum(
+                flow[(neighbor, _cell)] for neighbor in neighbors_by_cell[_cell]
+            )
+            outflow = solver.Sum(
+                flow[(_cell, neighbor)] for neighbor in neighbors_by_cell[_cell]
+            )
+            _demand = solver.Sum(
+                _building["demand"] * assignment[(_building["id"], _cell)]
+                for _building in building_demands
+                if _cell in _building["footprint"]
+            )
+            generated = generation.get(_cell, 0.0)
+            solver.Add(inflow + generated - outflow - _demand >= 0)
+
+        objective_terms = []
+        for (i, j), var in pipe_binary.items():
+            dx = i[0] - j[0]
+            dy = i[1] - j[1]
+            length = math.sqrt(dx * dx + dy * dy)
+            objective_terms.append(var * cost_pipe * length)
+        objective_terms.extend(
+            build_center[_cell] * cost_energy_center
+            for _cell in energy_center_cells
+        )
+        solver.Minimize(solver.Sum(objective_terms))
+
+        _status = solver.Solve()
+        pipe_binary_values = {
+            edge: pipe_binary[edge].solution_value()
+            for edge in pipe_binary
+        }
+        energy_edges = []
+        for (i, j), _value in pipe_binary_values.items():
+            if _value <= 0.5:
                 continue
-            neighbors_by_cell[(x_cell, y_cell)].append((nx, ny))
-            if (x_cell, y_cell) < (nx, ny):
-                edges.append(((x_cell, y_cell), (nx, ny)))
-
-    solver = pywraplp.Solver.CreateSolver("SCIP")
-    if solver is None:
-        raise RuntimeError("Failed to create OR-Tools solver.")
-
-    pipe_binary = {
-        (i, j): solver.BoolVar(f"pipe[{i},{j}]")
-        for i, j in edges
-    }
-    flow = {}
-    for i, j in edges:
-        flow[(i, j)] = solver.NumVar(0.0, solver.infinity(), f"flow[{i},{j}]")
-        flow[(j, i)] = solver.NumVar(0.0, solver.infinity(), f"flow[{j},{i}]")
-
-    build_center = {
-        cell: solver.BoolVar(f"build_ec[{cell}]")
-        for cell in energy_center_cells
-    }
-    generation = {
-        cell: solver.NumVar(0.0, solver.infinity(), f"gen[{cell}]")
-        for cell in energy_center_cells
-    }
-
-    assignment = {}
-    for building in building_demands:
-        for cell in building["footprint"]:
-            assignment[(building["id"], cell)] = solver.BoolVar(
-                f"assign[{building['id']},{cell}]"
+            energy_edges.append(
+                (i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5)
             )
 
-    for building in building_demands:
-        solver.Add(
-            solver.Sum(
-                assignment[(building["id"], cell)]
-                for cell in building["footprint"]
-            )
-            == 1
-        )
+        optimisation_result = {
+            "status": _status,
+            "objective_value": solver.Objective().Value()
+            if _status == pywraplp.Solver.OPTIMAL
+            else None,
+            "energy_edges": energy_edges,
+            "pipe_binary": pipe_binary_values,
+        }
 
-    big_m = total_demand
-    for i, j in edges:
-        solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
-        solver.Add(flow[(j, i)] <= big_m * pipe_binary[(i, j)])
-
-    for cell in energy_center_cells:
-        solver.Add(generation[cell] <= big_m * build_center[cell])
-
-    for cell in cells:
-        inflow = solver.Sum(
-            flow[(neighbor, cell)] for neighbor in neighbors_by_cell[cell]
-        )
-        outflow = solver.Sum(
-            flow[(cell, neighbor)] for neighbor in neighbors_by_cell[cell]
-        )
-        demand = solver.Sum(
-            building["demand"] * assignment[(building["id"], cell)]
-            for building in building_demands
-            if cell in building["footprint"]
-        )
-        generated = generation.get(cell, 0.0)
-        solver.Add(inflow + generated - outflow - demand >= 0)
-
-    objective_terms = []
-    for (i, j), var in pipe_binary.items():
-        dx = i[0] - j[0]
-        dy = i[1] - j[1]
-        length = math.sqrt(dx * dx + dy * dy)
-        objective_terms.append(var * cost_pipe * length)
-    objective_terms.extend(
-        build_center[cell] * cost_energy_center
-        for cell in energy_center_cells
-    )
-    solver.Minimize(solver.Sum(objective_terms))
-
-    status = solver.Solve()
-    pipe_binary_values = {
-        edge: pipe_binary[edge].solution_value()
-        for edge in pipe_binary
-    }
-    energy_edges = []
-    for (i, j), value in pipe_binary_values.items():
-        if value <= 0.5:
-            continue
-        energy_edges.append(
-            (i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5)
-        )
-
-    return {
-        "status": status,
-        "objective_value": solver.Objective().Value()
-        if status == pywraplp.Solver.OPTIMAL
-        else None,
-        "energy_edges": energy_edges,
-        "pipe_binary": pipe_binary_values,
-    }
+    optimisation_result
 
 
 @app.cell
 def _(building_demands, mo, optimisation_result):
-    status = optimisation_result["status"]
+    _status = optimisation_result["status"]
     objective = optimisation_result["objective_value"]
     status_md = mo.md(
-        f"**Solver status:** {status}  \n"
+        f"**Solver status:** {_status}  \n"
         f"**Objective value:** {objective}"
     )
     demand_rows = [
