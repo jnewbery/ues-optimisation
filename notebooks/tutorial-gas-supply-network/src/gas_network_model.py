@@ -68,15 +68,18 @@ def build_and_solve_model(data: GasNetworkData) -> dict:
     if solver is None:
         raise RuntimeError("Failed to create OR-Tools solver.")
 
+    # Sets
     cells = list(data.cells)
     pairs = [(i, j) for i in cells for j in cells if i != j]
 
+    # Variables
     pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in pairs}
     flow = {
         (i, j): solver.NumVar(0.0, solver.infinity(), f"flow[{i},{j}]")
         for i, j in pairs
     }
 
+    # Objective
     objective_terms = []
     for i, j in pairs:
         distance = hypot(
@@ -86,9 +89,9 @@ def build_and_solve_model(data: GasNetworkData) -> dict:
         objective_terms.append(pipe_binary[(i, j)] * data.cost_pipe * distance)
     solver.Minimize(solver.Sum(objective_terms))
 
+    # Constraints
     for i, j in pairs:
         solver.Add(flow[(i, j)] <= data.max_flow * pipe_binary[(i, j)])
-
     for i in cells:
         inflow = solver.Sum(flow[(j, i)] for j in cells if j != i)
         outflow = solver.Sum(flow[(i, j)] for j in cells if j != i)
