@@ -77,8 +77,9 @@ def _(mo):
 
 
 @app.cell
-def _(DEMAND, build_building_demands, mo, town):
-    building_demands = build_building_demands(town, DEMAND)
+def _(build_building_demands, mo, town):
+    # Update building demands if necessary
+    building_demands = build_building_demands(town)
     demand_rows = [
         {
             "Building": building["id"],
@@ -92,7 +93,7 @@ def _(DEMAND, build_building_demands, mo, town):
 
 
 @app.cell
-def _(DEMAND, build_and_solve_model, building_demands, param_form, town):
+def _(build_and_solve_model, param_form, town):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
@@ -104,10 +105,8 @@ def _(DEMAND, build_and_solve_model, building_demands, param_form, town):
     else:
         optimisation_result = build_and_solve_model(
             town,
-            demand_by_type=DEMAND,
             cost_energy_center=float(submitted["cost_energy_center"]),
             cost_pipe=float(submitted["cost_pipe"]),
-            building_demands=building_demands,
         )
     return (optimisation_result,)
 

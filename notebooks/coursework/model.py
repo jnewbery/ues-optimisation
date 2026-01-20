@@ -3,18 +3,18 @@ from typing import Any, Sequence
 
 from ortools.linear_solver import pywraplp
 
+from constants import DEMAND
 from layout import TownLayout
 
 
 def build_building_demands(
     town: TownLayout,
-    demand_by_type: dict[str, Any],
 ) -> list[dict[str, Any]]:
     cell_set = set(town.cells)
     building_demands = []
     for building_index, building in enumerate(town.buildings):
         building_type = building["type"]
-        demand = demand_by_type.get(building_type.name)
+        demand = DEMAND.get(building_type.name)
         if demand is None:
             continue
         footprint = [
@@ -41,13 +41,12 @@ def build_building_demands(
 def build_and_solve_model(
     town: TownLayout,
     *,
-    demand_by_type: dict[str, Any],
     cost_energy_center: float,
     cost_pipe: float,
     building_demands: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if building_demands is None:
-        building_demands = build_building_demands(town, demand_by_type)
+        building_demands = build_building_demands(town)
 
     total_demand = sum(building["demand"] for building in building_demands)
     if total_demand == 0:
