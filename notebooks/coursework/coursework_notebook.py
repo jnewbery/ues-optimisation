@@ -255,9 +255,11 @@ def _(go, mo, show_buildings, show_energy, show_roads, town_layout):
         "high density housing": "housing-high-density.png",
         "potential energy centre": "energy-centre.png",
         "hospital": "hospital.png",
-        "shopping centre": "shopping_centre.png",
+        "shopping centre": "shopping-centre.png",
         "school": "school.png",
         "office": "office.png",
+        "green space": "green-space.png",
+        "open space": "open-space.png",
     }
     color_map = {
         "low density housing": "rgb(255, 178, 220)",

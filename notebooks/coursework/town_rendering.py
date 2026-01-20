@@ -71,9 +71,11 @@ def render_town_layout(
         "high density housing": "housing-high-density.png",
         "potential energy centre": "energy-centre.png",
         "hospital": "hospital.png",
-        "shopping centre": "shopping_centre.png",
+        "shopping centre": "shopping-centre.png",
         "school": "school.png",
         "office": "office.png",
+        "green space": "green-space.png",
+        "open space": "open-space.png",
     }
 
     loaded_icons: dict[str, Image.Image] = {}
