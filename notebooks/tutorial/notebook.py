@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.19.4"
 app = marimo.App()
 
 
@@ -34,7 +34,7 @@ def _():
 
 @app.cell
 def _(Path, load_data_from_json):
-    base_data = load_data_from_json(Path("notebooks/tutorial-gas-supply-network/base_case.json"))
+    base_data = load_data_from_json(Path("notebooks/tutorial/base_case.json"))
     return (base_data,)
 
 
@@ -47,6 +47,7 @@ def _(base_data, mo):
     supply_cell_md = "\n".join(
         [f"{{supply_{name}}}" for name in supply_cell_names]
     )
+    print(supply_cell_md)
     default_supply_cells = {
         name
         for name, cell in base_data.cells.items()
