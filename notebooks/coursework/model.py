@@ -102,12 +102,7 @@ def build_and_solve_model(
         }
 
     # Build edges between neighboring cells
-    neighbor_deltas = [
-        (dx, dy)
-        for dx in (-1, 0, 1)
-        for dy in (-1, 0, 1)
-        if not (dx == 0 and dy == 0)
-    ]
+    neighbor_deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     edges = []
     neighbors_by_cell = {_cell: [] for _cell in town.cells}
     cell_set = set(town.cells)
