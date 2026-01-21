@@ -85,6 +85,7 @@ def build_and_solve_model(
     *,
     cost_energy_center: int,
     cost_pipe: int,
+    cost_pipe_road: int,
     time_limit_seconds: int | None = None,
     cell_demands: dict[tuple[int, int], int] | None = None,
     energy_center_cells: list[tuple[int, int]] | None = None,
@@ -119,6 +120,7 @@ def build_and_solve_model(
     edges = []
     neighbors_by_cell = {_cell: [] for _cell in town.cells}
     cell_set = set(town.cells)
+    road_cells = {cell for edge in town.road_edges for cell in edge}
     for x_cell, y_cell in town.cells:
         for dx, dy in neighbor_deltas:
             nx = x_cell + dx
@@ -161,7 +163,10 @@ def build_and_solve_model(
     objective_terms = []
     for (i, j), var in pipe_binary.items():
         length = 1
-        objective_terms.append(var * cost_pipe * length)
+        edge_cost = (
+            cost_pipe_road if i in road_cells and j in road_cells else cost_pipe
+        )
+        objective_terms.append(var * edge_cost * length)
     energy_center_cost = cost_energy_center * len(energy_center_cells)
     if energy_center_cost:
         objective_terms.append(energy_center_cost)

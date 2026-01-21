@@ -12,13 +12,15 @@ def _():
     import marimo as mo
     import plotly.graph_objects as go
 
-    from constants import DEMAND
+    from constants import DEMAND, HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD
     from layout import load_layout, CellType
     from model import build_and_solve_model, build_cell_demand_summary
     from visualisation import build_town_plot
     return (
         CellType,
         DEMAND,
+        HEAT_NETWORK_PIPE_COST_METER,
+        HEAT_NETWORK_PIPE_COST_METER_ROAD,
         Path,
         build_and_solve_model,
         build_cell_demand_summary,
@@ -59,7 +61,7 @@ def _(Path, layout_selector, load_layout):
 
 
 @app.cell
-def _(dedent, mo, town):
+def _(HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD, dedent, mo, town):
     energy_center_md = "\t".join(
         [f"{{({x}, {y})}}" for x, y in town.energy_center_cells]
     )
@@ -77,6 +79,8 @@ def _(dedent, mo, town):
 
         Pipe cost per unit length (£): {cost_pipe}
 
+        Pipe cost per unit length along roads (£): {cost_pipe_road}
+
         Time limit (seconds): {time_limit_seconds}
 
         ---
@@ -88,7 +92,8 @@ def _(dedent, mo, town):
         )
         .batch(
             cost_energy_center=mo.ui.number(value=2_000_000, step=100_000),
-            cost_pipe=mo.ui.number(value=100_000, step=10_000),
+            cost_pipe=mo.ui.number(value=HEAT_NETWORK_PIPE_COST_METER, step=10_000),
+            cost_pipe_road=mo.ui.number(value=HEAT_NETWORK_PIPE_COST_METER_ROAD, step=10_000),
             time_limit_seconds=mo.ui.number(value=30, step=5),
             **energy_center_checkboxes,
         )
@@ -136,6 +141,7 @@ def _(build_and_solve_model, param_form, town):
             town,
             cost_energy_center=int(submitted["cost_energy_center"]),
             cost_pipe=int(submitted["cost_pipe"]),
+            cost_pipe_road=int(submitted["cost_pipe_road"]),
             time_limit_seconds=int(submitted["time_limit_seconds"]),
             energy_center_cells=list(energy_center_cells),
         )

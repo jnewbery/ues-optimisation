@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from constants import HEAT_NETWORK_PIPE_COST_METER_ROAD
 from layout import load_layout
 from model import build_and_solve_model
 from argparse import ArgumentParser
@@ -13,6 +14,7 @@ def _main(layout_path: Path) -> None:
         town,
         cost_energy_center=2_000_000,
         cost_pipe=100_000,
+        cost_pipe_road=HEAT_NETWORK_PIPE_COST_METER_ROAD,
         time_limit_seconds=30,
     )
 
