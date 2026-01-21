@@ -52,14 +52,16 @@ def _pipe_edge_cost(
     road_cells: set[tuple[int, int]],
     cost_pipe: int,
     cost_pipe_road: int,
-) -> tuple[int, bool]:
+) -> tuple[int, int, bool]:
     is_road = i in road_cells and j in road_cells
     edge_cost = cost_pipe_road if is_road else cost_pipe
     if abs(i[0] - j[0]) == 1 and abs(i[1] - j[1]) == 1:
-        length_cost = int(round(edge_cost * sqrt(2)))
+        length_multiplier = sqrt(2)
     else:
-        length_cost = edge_cost
-    return length_cost, is_road
+        length_multiplier = 1.0
+    length_cost = int(round(edge_cost * length_multiplier))
+    length_meters = int(100.0 * length_multiplier)
+    return length_cost, length_meters, is_road
 
 
 def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
@@ -136,6 +138,9 @@ def build_and_solve_model(
                 "pipes_total": 0,
                 "pipes_road": 0,
                 "pipes_offroad": 0,
+                "pipe_length_total_m": 0,
+                "pipe_length_road_m": 0,
+                "pipe_length_offroad_m": 0,
                 "connections": 0,
                 "total": 0,
             },
@@ -211,7 +216,7 @@ def build_and_solve_model(
     # Objective function
     objective_terms = []
     for (i, j), var in pipe_binary.items():
-        length_cost, _ = _pipe_edge_cost(
+        length_cost, _, _ = _pipe_edge_cost(
             i,
             j,
             road_cells=road_cells,
@@ -242,10 +247,11 @@ def build_and_solve_model(
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
     energy_centers = list(energy_center_cells)
     pipe_costs = {"road": 0, "offroad": 0}
+    pipe_lengths = {"road": 0, "offroad": 0}
     for (i, j), value in pipe_binary_values.items():
         if value <= 0:
             continue
-        length_cost, is_road = _pipe_edge_cost(
+        length_cost, length_meters, is_road = _pipe_edge_cost(
             i,
             j,
             road_cells=road_cells,
@@ -254,8 +260,10 @@ def build_and_solve_model(
         )
         if is_road:
             pipe_costs["road"] += length_cost
+            pipe_lengths["road"] += length_meters
         else:
             pipe_costs["offroad"] += length_cost
+            pipe_lengths["offroad"] += length_meters
     total_cost = (
         energy_center_cost
         + connection_cost
@@ -276,6 +284,9 @@ def build_and_solve_model(
             "pipes_total": pipe_costs["road"] + pipe_costs["offroad"],
             "pipes_road": pipe_costs["road"],
             "pipes_offroad": pipe_costs["offroad"],
+            "pipe_length_total_m": pipe_lengths["road"] + pipe_lengths["offroad"],
+            "pipe_length_road_m": pipe_lengths["road"],
+            "pipe_length_offroad_m": pipe_lengths["offroad"],
             "connections": connection_cost,
             "total": total_cost,
         }

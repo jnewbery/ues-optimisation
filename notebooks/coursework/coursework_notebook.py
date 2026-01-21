@@ -123,7 +123,7 @@ def _(build_and_solve_model, param_form, town):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
-            "status": "not-run",
+            "status": "Not run",
             "objective_value": None,
             "energy_edges": [],
             "pipe_binary": {},
@@ -151,21 +151,23 @@ def _(build_and_solve_model, param_form, town):
 def _(mo, optimisation_result):
     _status = optimisation_result["status"]
     objective = optimisation_result["objective_value"]
-    objective_str = f"£{round(objective, 2)}" if objective else "None"
     costs = optimisation_result.get("costs")
     if costs:
         breakdown_md = (
             f"**Cost breakdown:**  \n"
-            f"- Energy centres: £{round(costs['energy_centers'], 2)}  \n"
-            f"- Pipes (along roads): £{round(costs['pipes_road'], 2)}  \n"
-            f"- Pipes (away from roads): £{round(costs['pipes_offroad'], 2)}  \n"
-            f"- Connection costs: £{round(costs['connections'], 2)}  \n"
+            f"- Energy centres: £{costs['energy_centers']:,.0f}  \n"
+            f"- Pipes:  \n"
+            f"  - Pipes (along roads): £{costs['pipes_road']:,.0f} (from {costs['pipe_length_road_m']:,.0f}m)  \n"
+            f"  - Pipes (away from roads): £{costs['pipes_offroad']:,.0f} (from {costs['pipe_length_offroad_m']:,.0f}m)  \n"
+            f"  - Pipes (total): £{costs['pipes_road'] + costs['pipes_offroad']:,.0f} (from {costs['pipe_length_total_m']:,.0f}m)  \n"
+            f"- Connection costs: £{costs['connections']:,.0f}  \n"
+            f"- **Total cost:** £{costs['total']:,.0f}  \n"
         )
     else:
         breakdown_md = ""
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
-        f"**Objective value:** {objective_str}  \n"
+        f"**Objective value:** {objective}  \n"
         + breakdown_md
     )
     return (status_md,)
