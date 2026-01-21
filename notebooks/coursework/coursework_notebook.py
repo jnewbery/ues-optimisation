@@ -7,6 +7,7 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     from pathlib import Path
+    from textwrap import dedent
 
     import marimo as mo
     import plotly.graph_objects as go
@@ -22,6 +23,7 @@ def _():
         build_and_solve_model,
         build_cell_demand_summary,
         build_town_plot,
+        dedent,
         go,
         load_layout,
         mo,
@@ -57,35 +59,38 @@ def _(Path, layout_selector, load_layout):
 
 
 @app.cell
-def _(mo, town):
-    energy_center_options = {
-        f"({x}, {y})": (x, y) for x, y in town.energy_center_cells
-    }
-    energy_center_selector = mo.ui.multiselect(
-        options=energy_center_options,
-        value=list(energy_center_options.values()),
-        label="Energy centre locations (EC cells)",
+def _(dedent, mo, town):
+    energy_center_md = "\t".join(
+        [f"{{({x}, {y})}}" for x, y in town.energy_center_cells]
     )
-    mo.vstack([mo.md("### Energy centres"), energy_center_selector])
-    return (energy_center_selector,)
-
-
-@app.cell
-def _(mo):
+    energy_center_checkboxes = {
+        f"({x}, {y})": mo.ui.checkbox(
+            value=True,
+            label=f"({x}, {y})",
+        )
+        for x, y in town.energy_center_cells
+    }
     param_form = (
         mo.md(
-            """
-            Energy centre build cost (£): {cost_energy_center}
+            dedent("""
+        Energy centre build cost (£): {cost_energy_center}
 
-            Pipe cost per unit length (£): {cost_pipe}
+        Pipe cost per unit length (£): {cost_pipe}
 
-            Time limit (seconds): {time_limit_seconds}
-            """
+        Time limit (seconds): {time_limit_seconds}
+
+        ---
+
+        Energy centres:
+    
+            """)
+            + energy_center_md
         )
         .batch(
             cost_energy_center=mo.ui.number(value=2_000_000, step=100_000),
             cost_pipe=mo.ui.number(value=100_000, step=10_000),
             time_limit_seconds=mo.ui.number(value=30, step=5),
+            **energy_center_checkboxes,
         )
         .form(submit_button_label="Run optimisation", label="Model Parameters")
     )
@@ -111,7 +116,7 @@ def _(build_cell_demand_summary, mo, town):
 
 
 @app.cell
-def _(build_and_solve_model, energy_center_selector, param_form, town):
+def _(build_and_solve_model, param_form, town):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
@@ -122,12 +127,17 @@ def _(build_and_solve_model, energy_center_selector, param_form, town):
             "energy_centers": [],
         }
     else:
+        energy_center_cells = [
+            (x, y)
+            for x, y in town.energy_center_cells
+            if submitted.get(f"({x}, {y})", False)
+        ]
         optimisation_result = build_and_solve_model(
             town,
             cost_energy_center=float(submitted["cost_energy_center"]),
             cost_pipe=float(submitted["cost_pipe"]),
             time_limit_seconds=float(submitted["time_limit_seconds"]),
-            energy_center_cells=list(energy_center_selector.value),
+            energy_center_cells=list(energy_center_cells),
         )
     return (optimisation_result,)
 
