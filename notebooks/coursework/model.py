@@ -7,11 +7,37 @@ from constants import DEMAND
 from layout import TownLayout
 
 
-def build_building_demands(
-    town: TownLayout,
-) -> list[dict[str, Any]]:
+def _map_center(town: TownLayout) -> tuple[float, float]:
+    max_x = max(x for x, _ in town.cells)
+    max_y = max(y for _, y in town.cells)
+    return max_x / 2, max_y / 2
+
+
+def _pick_representative_cell(
+    *,
+    footprint: Sequence[tuple[int, int]],
+    road_cells: set[tuple[int, int]],
+    center: tuple[float, float],
+) -> tuple[int, int]:
+    candidates = [cell for cell in footprint if cell in road_cells]
+    if not candidates:
+        candidates = list(footprint)
+    center_x, center_y = center
+    return min(
+        candidates,
+        key=lambda cell: (
+            (cell[0] - center_x) ** 2 + (cell[1] - center_y) ** 2,
+            cell[0],
+            cell[1],
+        ),
+    )
+
+
+def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
     cell_set = set(town.cells)
-    building_demands = []
+    road_cells = {cell for edge in town.road_edges for cell in edge}
+    center = _map_center(town)
+    cell_summaries = []
     for building_index, building in enumerate(town.buildings):
         building_type = building["type"]
         demand = DEMAND.get(building_type.name)
@@ -27,15 +53,32 @@ def build_building_demands(
             continue
         winter_thermal = demand.thermal_demand_kwh_year * demand.thermal_winter_factor
         total_demand = winter_thermal * len(footprint)
-        building_demands.append(
+        representative_cell = _pick_representative_cell(
+            footprint=footprint,
+            road_cells=road_cells,
+            center=center,
+        )
+        cell_summaries.append(
             {
                 "id": building_index,
                 "type": building_type.value,
                 "demand": total_demand,
+                "cell": representative_cell,
                 "footprint": footprint,
             }
         )
-    return building_demands
+    return cell_summaries
+
+
+def build_cell_demands(
+    town: TownLayout,
+) -> dict[tuple[int, int], float]:
+    cell_summaries = build_cell_demand_summary(town)
+    cell_demands: dict[tuple[int, int], float] = {}
+    for summary in cell_summaries:
+        cell = summary["cell"]
+        cell_demands[cell] = cell_demands.get(cell, 0.0) + summary["demand"]
+    return cell_demands
 
 
 def build_and_solve_model(
@@ -43,12 +86,12 @@ def build_and_solve_model(
     *,
     cost_energy_center: float,
     cost_pipe: float,
-    building_demands: Sequence[dict[str, Any]] | None = None,
+    cell_demands: dict[tuple[int, int], float] | None = None,
 ) -> dict[str, Any]:
-    if building_demands is None:
-        building_demands = build_building_demands(town)
+    if cell_demands is None:
+        cell_demands = build_cell_demands(town)
 
-    total_demand = sum(building["demand"] for building in building_demands)
+    total_demand = sum(cell_demands.values())
     if total_demand == 0:
         return {
             "status": "no-demand",
@@ -91,21 +134,6 @@ def build_and_solve_model(
         for cell in town.energy_center_cells
     }
 
-    assignment = {}
-    for building in building_demands:
-        for cell in building["footprint"]:
-            assignment[(building["id"], cell)] = solver.BoolVar(
-                f"assign[{building['id']},{cell}]"
-            )
-
-    for building in building_demands:
-        solver.Add(
-            solver.Sum(
-                assignment[(building["id"], cell)] for cell in building["footprint"]
-            )
-            == 1
-        )
-
     big_m = total_demand
     for i, j in edges:
         solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
@@ -118,11 +146,7 @@ def build_and_solve_model(
             direction = -1 if cell == edge[0] else 1
             net_flow_terms.append(direction * flow[edge])
         net_flow = solver.Sum(net_flow_terms) if net_flow_terms else 0.0
-        demand = solver.Sum(
-            building["demand"] * assignment[(building["id"], cell)]
-            for building in building_demands
-            if cell in building["footprint"]
-        )
+        demand = cell_demands.get(cell, 0.0)
         generated = total_demand * build_center.get(cell, 0.0)
         solver.Add(net_flow + generated - demand >= 0)
 
