@@ -52,7 +52,6 @@ def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
         if not footprint:
             continue
         winter_thermal = demand.thermal_demand_kwh_year * demand.thermal_winter_factor
-        total_demand = winter_thermal * len(footprint)
         representative_cell = _pick_representative_cell(
             footprint=footprint,
             road_cells=road_cells,
@@ -62,7 +61,7 @@ def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
             {
                 "id": building_index,
                 "type": building_type.value,
-                "demand": total_demand,
+                "demand": winter_thermal,
                 "cell": representative_cell,
                 "footprint": footprint,
             }
