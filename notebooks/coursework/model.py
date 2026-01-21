@@ -1,4 +1,5 @@
 from decimal import Decimal
+from math import sqrt
 from typing import Any, Sequence
 
 from ortools.sat.python import cp_model
@@ -115,8 +116,17 @@ def build_and_solve_model(
             "energy_centers": [],
         }
 
-    # Build edges between neighboring cells
-    neighbor_deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    # Build edges between neighboring cells (including diagonals)
+    neighbor_deltas = [
+        (-1, 0),
+        (1, 0),
+        (0, -1),
+        (0, 1),
+        (-1, -1),
+        (-1, 1),
+        (1, -1),
+        (1, 1),
+    ]
     edges = []
     neighbors_by_cell = {_cell: [] for _cell in town.cells}
     cell_set = set(town.cells)
@@ -162,11 +172,14 @@ def build_and_solve_model(
     # Objective function
     objective_terms = []
     for (i, j), var in pipe_binary.items():
-        length = 1
         edge_cost = (
             cost_pipe_road if i in road_cells and j in road_cells else cost_pipe
         )
-        objective_terms.append(var * edge_cost * length)
+        if abs(i[0] - j[0]) == 1 and abs(i[1] - j[1]) == 1:
+            length_cost = int(round(edge_cost * sqrt(2)))
+        else:
+            length_cost = edge_cost
+        objective_terms.append(var * length_cost)
     energy_center_cost = cost_energy_center * len(energy_center_cells)
     if energy_center_cost:
         objective_terms.append(energy_center_cost)

@@ -155,9 +155,7 @@ def _(mo, optimisation_result):
     objective_str = f"£{round(objective, 2)}" if objective else "None"
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
-        f"**Objective value:** {objective_str}  \n\n"
-        "Note: the optimisation uses OR-Tools CP-SAT with an integer objective. "
-        "Pipe costs are internally scaled to integers and rescaled for display."
+        f"**Objective value:** {objective_str}  \n"
     )
     return (status_md,)
 
