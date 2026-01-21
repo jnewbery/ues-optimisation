@@ -137,10 +137,6 @@ def build_and_solve_model(
         (i, j): model.NewIntVar(-total_demand, total_demand, f"flow[{i},{j}]")
         for i, j in edges
     }
-    # build_center = {
-    #     cell: model.NewBoolVar(f"build_ec[{cell}]")
-    #     for cell in town.energy_center_cells
-    # }
 
     # Constraints
     for i, j in edges:
@@ -164,13 +160,8 @@ def build_and_solve_model(
     # Objective function
     objective_terms = []
     for (i, j), var in pipe_binary.items():
-        # length = math.sqrt(dx * dx + dy * dy)
         length = 1
         objective_terms.append(var * cost_pipe * length)
-    # objective_terms.extend(
-    #     build_center[cell] * cost_energy_center
-    #     for cell in town.energy_center_cells
-    # )
 
     # Solve
     model.Minimize(sum(objective_terms))
@@ -187,10 +178,6 @@ def build_and_solve_model(
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
     energy_centers = list(energy_center_cells)
-    # if status == pywraplp.Solver.OPTIMAL:
-    #     for cell, var in build_center.items():
-    #         if var.solution_value() > 0.5:
-    #             energy_centers.append(cell)
 
     return {
         "status": solver.StatusName(status),
