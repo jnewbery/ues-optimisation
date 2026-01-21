@@ -87,6 +87,7 @@ def build_and_solve_model(
     cost_pipe: float,
     cell_demands: dict[tuple[int, int], float] | None = None,
 ) -> dict[str, Any]:
+    # Allow cell demands to be overridden by calling function
     if cell_demands is None:
         cell_demands = build_cell_demands(town)
 
@@ -100,6 +101,7 @@ def build_and_solve_model(
             "energy_centers": [],
         }
 
+    # Build edges between neighboring cells
     neighbor_deltas = [
         (dx, dy)
         for dx in (-1, 0, 1)
@@ -123,6 +125,7 @@ def build_and_solve_model(
     if solver is None:
         raise RuntimeError("Failed to create OR-Tools solver.")
 
+    # Decision variables
     pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in edges}
     flow = {
         (i, j): solver.NumVar(-solver.infinity(), solver.infinity(), f"flow[{i},{j}]")
@@ -133,6 +136,7 @@ def build_and_solve_model(
         for cell in town.energy_center_cells
     }
 
+    # Constraints
     big_m = total_demand
     for i, j in edges:
         solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
@@ -149,6 +153,7 @@ def build_and_solve_model(
         generated = total_demand * build_center.get(cell, 0.0)
         solver.Add(net_flow + generated - demand >= 0)
 
+    # Objective function
     objective_terms = []
     for (i, j), var in pipe_binary.items():
         dx = i[0] - j[0]
@@ -160,9 +165,11 @@ def build_and_solve_model(
         for cell in town.energy_center_cells
     )
 
+    # Solve
     solver.Minimize(solver.Sum(objective_terms))
     status = solver.Solve()
 
+    # Extract results
     pipe_binary_values = {edge: pipe_binary[edge].solution_value() for edge in pipe_binary}
     energy_edges = []
     for (i, j), value in pipe_binary_values.items():
