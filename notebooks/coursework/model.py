@@ -121,15 +121,21 @@ def build_and_solve_model(
             if (x_cell, y_cell) < (nx, ny):
                 edges.append(((x_cell, y_cell), (nx, ny)))
 
-    solver = pywraplp.Solver.CreateSolver("SCIP")
+    solver = pywraplp.Solver.CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING")
     if solver is None:
         raise RuntimeError("Failed to create OR-Tools solver.")
 
     # Decision variables
     pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in edges}
-    flow = {
-        (i, j): solver.NumVar(-solver.infinity(), solver.infinity(), f"flow[{i},{j}]")
-        for i, j in edges
+    directed_edges = []
+    for i, j in edges:
+        directed_edges.append((i, j))
+        directed_edges.append((j, i))
+    parent = {(i, j): solver.BoolVar(f"parent[{i},{j}]") for i, j in directed_edges}
+    active_cell = {cell: solver.BoolVar(f"active[{cell}]") for cell in town.cells}
+    depth = {
+        cell: solver.IntVar(0, len(town.cells), f"depth[{cell}]")
+        for cell in town.cells
     }
     build_center = {
         cell: solver.BoolVar(f"build_ec[{cell}]")
@@ -137,21 +143,37 @@ def build_and_solve_model(
     }
 
     # Constraints
-    big_m = total_demand
+    big_m = len(town.cells)
     for i, j in edges:
-        solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
-        solver.Add(flow[(i, j)] >= -big_m * pipe_binary[(i, j)])
+        solver.Add(parent[(i, j)] + parent[(j, i)] <= pipe_binary[(i, j)])
+        solver.Add(active_cell[i] >= pipe_binary[(i, j)])
+        solver.Add(active_cell[j] >= pipe_binary[(i, j)])
 
     for cell in town.cells:
-        net_flow_terms = []
-        for neighbor in neighbors_by_cell[cell]:
-            edge = (cell, neighbor) if cell < neighbor else (neighbor, cell)
-            direction = -1 if cell == edge[0] else 1
-            net_flow_terms.append(direction * flow[edge])
-        net_flow = solver.Sum(net_flow_terms) if net_flow_terms else 0.0
-        demand = cell_demands.get(cell, 0.0)
-        generated = total_demand * build_center.get(cell, 0.0)
-        solver.Add(net_flow + generated - demand >= 0)
+        if cell_demands.get(cell, 0.0) > 0:
+            solver.Add(active_cell[cell] == 1)
+        solver.Add(active_cell[cell] >= build_center.get(cell, 0.0))
+
+    for cell in town.cells:
+        incoming = [
+            parent[(neighbor, cell)]
+            for neighbor in neighbors_by_cell[cell]
+        ]
+        if incoming:
+            solver.Add(
+                solver.Sum(incoming) == active_cell[cell] - build_center.get(cell, 0.0)
+            )
+        else:
+            solver.Add(active_cell[cell] == build_center.get(cell, 0.0))
+
+        solver.Add(depth[cell] <= big_m * active_cell[cell])
+        solver.Add(depth[cell] >= active_cell[cell] - big_m * build_center.get(cell, 0.0))
+        solver.Add(depth[cell] <= big_m * (1 - build_center.get(cell, 0.0)))
+
+    for i, j in directed_edges:
+        solver.Add(
+            depth[j] >= depth[i] + 1 - big_m * (1 - parent[(i, j)])
+        )
 
     # Objective function
     objective_terms = []
