@@ -12,19 +12,17 @@ def _():
     import marimo as mo
     import plotly.graph_objects as go
 
-    from constants import DEMAND, HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD
+    import constants
     from layout import load_layout, CellType
     from model import build_and_solve_model, build_cell_demand_summary
     from visualisation import build_town_plot
     return (
         CellType,
-        DEMAND,
-        HEAT_NETWORK_PIPE_COST_METER,
-        HEAT_NETWORK_PIPE_COST_METER_ROAD,
         Path,
         build_and_solve_model,
         build_cell_demand_summary,
         build_town_plot,
+        constants,
         dedent,
         go,
         load_layout,
@@ -61,7 +59,7 @@ def _(Path, layout_selector, load_layout):
 
 
 @app.cell
-def _(HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD, dedent, mo, town):
+def _(constants, dedent, mo, town):
     energy_center_md = "\t".join(
         [f"{{({x}, {y})}}" for x, y in town.energy_center_cells]
     )
@@ -86,14 +84,14 @@ def _(HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD, dedent, m
         ---
 
         Energy centres:
-    
+
             """)
             + energy_center_md
         )
         .batch(
-            cost_energy_center=mo.ui.number(value=2_000_000, step=100_000),
-            cost_pipe=mo.ui.number(value=HEAT_NETWORK_PIPE_COST_METER, step=10_000),
-            cost_pipe_road=mo.ui.number(value=HEAT_NETWORK_PIPE_COST_METER_ROAD, step=10_000),
+            cost_energy_center=mo.ui.number(value=constants.HEAT_NETWORK_ENERGY_CENTER_COST, step=1_000_000),
+            cost_pipe=mo.ui.number(value=constants.HEAT_NETWORK_PIPE_COST_METER, step=10_000),
+            cost_pipe_road=mo.ui.number(value=constants.HEAT_NETWORK_PIPE_COST_METER_ROAD, step=10_000),
             time_limit_seconds=mo.ui.number(value=30, step=5),
             **energy_center_checkboxes,
         )
@@ -130,6 +128,7 @@ def _(build_and_solve_model, param_form, town):
             "energy_edges": [],
             "pipe_binary": {},
             "energy_centers": [],
+            "costs": None,
         }
     else:
         energy_center_cells = [
@@ -153,9 +152,21 @@ def _(mo, optimisation_result):
     _status = optimisation_result["status"]
     objective = optimisation_result["objective_value"]
     objective_str = f"£{round(objective, 2)}" if objective else "None"
+    costs = optimisation_result.get("costs")
+    if costs:
+        breakdown_md = (
+            f"**Cost breakdown:**  \n"
+            f"- Energy centres: £{round(costs['energy_centers'], 2)}  \n"
+            f"- Pipes (along roads): £{round(costs['pipes_road'], 2)}  \n"
+            f"- Pipes (away from roads): £{round(costs['pipes_offroad'], 2)}  \n"
+            f"- Connection costs: £{round(costs['connections'], 2)}  \n"
+        )
+    else:
+        breakdown_md = ""
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
         f"**Objective value:** {objective_str}  \n"
+        + breakdown_md
     )
     return (status_md,)
 
@@ -210,10 +221,10 @@ def _(
 @app.cell
 def _(
     CellType,
-    DEMAND,
     Path,
     building_metadata,
     center_lookup,
+    constants,
     icon_map,
     mo,
     plot,
@@ -252,7 +263,7 @@ def _(
     if selected is not None:
         demand_by_label = {
             CellType[key].value: demand
-            for key, demand in DEMAND.items()
+            for key, demand in constants.DEMAND.items()
             if key in CellType.__members__
         }
         demand = demand_by_label.get(selected["type"])

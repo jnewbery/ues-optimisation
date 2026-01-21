@@ -1,10 +1,9 @@
-from decimal import Decimal
 from math import sqrt
 from typing import Any, Sequence
 
 from ortools.sat.python import cp_model
 
-from constants import DEMAND
+from constants import DEMAND, HEAT_NETWORK_CONNECTION_COST_BUILDING
 from layout import TownLayout
 
 
@@ -32,6 +31,35 @@ def _pick_representative_cell(
             cell[1],
         ),
     )
+
+
+def _calculate_connection_cost(town: TownLayout) -> int:
+    housing_multipliers = {"H20": 20, "H30": 30, "H40": 40}
+    total_cost = 0
+    for building in town.buildings:
+        building_type = building["type"].name
+        if building_type not in DEMAND:
+            continue
+        multiplier = housing_multipliers.get(building_type, 1)
+        total_cost += multiplier * HEAT_NETWORK_CONNECTION_COST_BUILDING
+    return total_cost
+
+
+def _pipe_edge_cost(
+    i: tuple[int, int],
+    j: tuple[int, int],
+    *,
+    road_cells: set[tuple[int, int]],
+    cost_pipe: int,
+    cost_pipe_road: int,
+) -> tuple[int, bool]:
+    is_road = i in road_cells and j in road_cells
+    edge_cost = cost_pipe_road if is_road else cost_pipe
+    if abs(i[0] - j[0]) == 1 and abs(i[1] - j[1]) == 1:
+        length_cost = int(round(edge_cost * sqrt(2)))
+    else:
+        length_cost = edge_cost
+    return length_cost, is_road
 
 
 def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
@@ -103,6 +131,14 @@ def build_and_solve_model(
             "energy_edges": [],
             "pipe_binary": {},
             "energy_centers": [],
+            "costs": {
+                "energy_centers": 0,
+                "pipes_total": 0,
+                "pipes_road": 0,
+                "pipes_offroad": 0,
+                "connections": 0,
+                "total": 0,
+            },
         }
 
     if energy_center_cells is None:
@@ -114,6 +150,7 @@ def build_and_solve_model(
             "energy_edges": [],
             "pipe_binary": {},
             "energy_centers": [],
+            "costs": None,
         }
 
     # Calculate edges between neighboring cells (including diagonals)
@@ -174,17 +211,20 @@ def build_and_solve_model(
     # Objective function
     objective_terms = []
     for (i, j), var in pipe_binary.items():
-        edge_cost = (
-            cost_pipe_road if i in road_cells and j in road_cells else cost_pipe
+        length_cost, _ = _pipe_edge_cost(
+            i,
+            j,
+            road_cells=road_cells,
+            cost_pipe=cost_pipe,
+            cost_pipe_road=cost_pipe_road,
         )
-        if abs(i[0] - j[0]) == 1 and abs(i[1] - j[1]) == 1:
-            length_cost = int(round(edge_cost * sqrt(2)))
-        else:
-            length_cost = edge_cost
         objective_terms.append(var * length_cost)
     energy_center_cost = cost_energy_center * len(energy_center_cells)
     if energy_center_cost:
         objective_terms.append(energy_center_cost)
+    connection_cost = _calculate_connection_cost(town)
+    if connection_cost:
+        objective_terms.append(connection_cost)
 
     # Solve
     model.Minimize(sum(objective_terms))
@@ -201,6 +241,27 @@ def build_and_solve_model(
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
     energy_centers = list(energy_center_cells)
+    pipe_costs = {"road": 0, "offroad": 0}
+    for (i, j), value in pipe_binary_values.items():
+        if value <= 0:
+            continue
+        length_cost, is_road = _pipe_edge_cost(
+            i,
+            j,
+            road_cells=road_cells,
+            cost_pipe=cost_pipe,
+            cost_pipe_road=cost_pipe_road,
+        )
+        if is_road:
+            pipe_costs["road"] += length_cost
+        else:
+            pipe_costs["offroad"] += length_cost
+    total_cost = (
+        energy_center_cost
+        + connection_cost
+        + pipe_costs["road"]
+        + pipe_costs["offroad"]
+    )
 
     return {
         "status": solver.StatusName(status),
@@ -210,4 +271,14 @@ def build_and_solve_model(
         "energy_edges": energy_edges,
         "pipe_binary": pipe_binary_values,
         "energy_centers": energy_centers,
+        "costs": {
+            "energy_centers": energy_center_cost,
+            "pipes_total": pipe_costs["road"] + pipe_costs["offroad"],
+            "pipes_road": pipe_costs["road"],
+            "pipes_offroad": pipe_costs["offroad"],
+            "connections": connection_cost,
+            "total": total_cost,
+        }
+        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+        else None,
     }

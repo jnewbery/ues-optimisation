@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from constants import HEAT_NETWORK_PIPE_COST_METER_ROAD
+import constants
 from layout import load_layout
 from model import build_and_solve_model
 from argparse import ArgumentParser
@@ -12,9 +12,9 @@ def _main(layout_path: Path) -> None:
 
     optimisation_result = build_and_solve_model(
         town,
-        cost_energy_center=2_000_000,
-        cost_pipe=100_000,
-        cost_pipe_road=HEAT_NETWORK_PIPE_COST_METER_ROAD,
+        cost_energy_center=constants.HEAT_NETWORK_ENERGY_CENTER_COST,
+        cost_pipe=constants.HEAT_NETWORK_PIPE_COST_METER,
+        cost_pipe_road=constants.HEAT_NETWORK_PIPE_COST_METER_ROAD,
         time_limit_seconds=30,
     )
 
