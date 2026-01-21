@@ -101,6 +101,7 @@ def _(build_and_solve_model, param_form, town):
             "objective_value": None,
             "energy_edges": [],
             "pipe_binary": {},
+            "energy_centers": [],
         }
     else:
         optimisation_result = build_and_solve_model(

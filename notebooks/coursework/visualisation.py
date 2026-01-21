@@ -115,6 +115,7 @@ def build_town_plot(
         )
 
     energy_network_edges = optimisation_result.get("energy_edges", [])
+    energy_center_cells = optimisation_result.get("energy_centers", [])
     energy_traces = []
     for idx, (x0, y0, x1, y1) in enumerate(energy_network_edges):
         energy_traces.append(
@@ -122,9 +123,48 @@ def build_town_plot(
                 x=[x0, x1],
                 y=[y0, y1],
                 mode="lines",
-                line={"color": "rgb(255, 0, 0)", "width": 3},
+                line={"color": "rgb(224, 224, 0)", "width": 6},
                 hoverinfo="skip",
                 name="Energy network",
+                legendgroup="energy",
+                showlegend=idx == 0,
+            )
+        )
+    for idx, (x, y) in enumerate(energy_center_cells):
+        energy_traces.append(
+            go.Scatter(
+                x=[x + 0.5],
+                y=[y + 0.5],
+                mode="markers",
+                marker={"size": cell_size * 0.8, "color": "rgb(224, 224, 0)"},
+                hoverinfo="skip",
+                name="Energy centre",
+                legendgroup="energy",
+                showlegend=idx == 0,
+            )
+        )
+    for idx, (x0, y0, x1, y1) in enumerate(energy_network_edges):
+        energy_traces.append(
+            go.Scatter(
+                x=[x0, x1],
+                y=[y0, y1],
+                mode="lines",
+                line={"color": "rgb(192, 0, 0)", "width": 3},
+                hoverinfo="skip",
+                name="Energy network",
+                legendgroup="energy",
+                showlegend=idx == 0,
+            )
+        )
+    for idx, (x, y) in enumerate(energy_center_cells):
+        energy_traces.append(
+            go.Scatter(
+                x=[x + 0.5],
+                y=[y + 0.5],
+                mode="markers",
+                marker={"size": cell_size * 0.6, "color": "rgb(192, 0, 0)"},
+                hoverinfo="skip",
+                name="Energy centre",
                 legendgroup="energy",
                 showlegend=idx == 0,
             )

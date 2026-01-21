@@ -55,6 +55,7 @@ def build_and_solve_model(
             "objective_value": 0.0,
             "energy_edges": [],
             "pipe_binary": {},
+            "energy_centers": [],
         }
 
     neighbor_deltas = [
@@ -144,6 +145,11 @@ def build_and_solve_model(
         if value <= 0.5:
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
+    energy_centers = []
+    if status == pywraplp.Solver.OPTIMAL:
+        for cell, var in build_center.items():
+            if var.solution_value() > 0.5:
+                energy_centers.append(cell)
 
     return {
         "status": status,
@@ -152,4 +158,5 @@ def build_and_solve_model(
         else None,
         "energy_edges": energy_edges,
         "pipe_binary": pipe_binary_values,
+        "energy_centers": energy_centers,
     }
