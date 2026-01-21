@@ -27,6 +27,7 @@ class TownLayout:
     buildings: list[dict[str, Any]]
     cells: list[Cell]
     energy_center_cells: list[Cell]
+    road_adjacent_cells: set[Cell]
 
 
 def _build_town_layout(grid_layout: list[list[str]]) -> list[dict[str, Any]]:
@@ -92,6 +93,26 @@ def _build_town_layout(grid_layout: list[list[str]]) -> list[dict[str, Any]]:
     return town_layout
 
 
+def _build_road_adjacent_cells(
+    road_edges: list[RoadEdge],
+    cell_set: set[Cell],
+) -> set[Cell]:
+    road_adjacent_cells: set[Cell] = set()
+    for (x1, y1), (x2, y2) in road_edges:
+        if x1 == x2 and abs(y1 - y2) == 1:
+            y_min = min(y1, y2)
+            candidates = [(x1 - 1, y_min), (x1, y_min)]
+        elif y1 == y2 and abs(x1 - x2) == 1:
+            x_min = min(x1, x2)
+            candidates = [(x_min, y1 - 1), (x_min, y1)]
+        else:
+            continue
+        for cell in candidates:
+            if cell in cell_set:
+                road_adjacent_cells.add(cell)
+    return road_adjacent_cells
+
+
 def load_layout(layout_path: Path) -> TownLayout:
     with layout_path.open() as handle:
         layout_data = json.load(handle)
@@ -106,16 +127,19 @@ def load_layout(layout_path: Path) -> TownLayout:
         for y_index, row in enumerate(grid_layout)
         for x_index, _ in enumerate(row)
     ]
+    cell_set = set(cells)
     energy_center_cells: list[Cell] = [
         (x_index, y_index)
         for y_index, row in enumerate(grid_layout)
         for x_index, cell in enumerate(row)
         if cell == CellType.EC.name
     ]
+    road_adjacent_cells = _build_road_adjacent_cells(road_edges, cell_set)
     return TownLayout(
         grid_layout=grid_layout,
         road_edges=road_edges,
         buildings=buildings,
         cells=cells,
         energy_center_cells=energy_center_cells,
+        road_adjacent_cells=road_adjacent_cells,
     )
