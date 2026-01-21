@@ -67,7 +67,7 @@ def _(HEAT_NETWORK_PIPE_COST_METER, HEAT_NETWORK_PIPE_COST_METER_ROAD, dedent, m
     )
     energy_center_checkboxes = {
         f"({x}, {y})": mo.ui.checkbox(
-            value=True,
+            value=False,
             label=f"({x}, {y})",
         )
         for x, y in town.energy_center_cells

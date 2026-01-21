@@ -36,7 +36,19 @@ def _pick_representative_cell(
 
 def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
     cell_set = set(town.cells)
-    road_cells = {cell for edge in town.road_edges for cell in edge}
+    road_cells = set()
+    for (x1, y1), (x2, y2) in town.road_edges:
+        if x1 == x2 and abs(y1 - y2) == 1:
+            y_min = min(y1, y2)
+            candidates = [(x1 - 1, y_min), (x1, y_min)]
+        elif y1 == y2 and abs(x1 - x2) == 1:
+            x_min = min(x1, x2)
+            candidates = [(x_min, y1 - 1), (x_min, y1)]
+        else:
+            continue
+        for cell in candidates:
+            if cell in cell_set:
+                road_cells.add(cell)
     center = _map_center(town)
     cell_summaries = []
     for building_index, building in enumerate(town.buildings):
@@ -116,7 +128,7 @@ def build_and_solve_model(
             "energy_centers": [],
         }
 
-    # Build edges between neighboring cells (including diagonals)
+    # Calculate edges between neighboring cells (including diagonals)
     neighbor_deltas = [
         (-1, 0),
         (1, 0),
@@ -130,7 +142,6 @@ def build_and_solve_model(
     edges = []
     neighbors_by_cell = {_cell: [] for _cell in town.cells}
     cell_set = set(town.cells)
-    road_cells = {cell for edge in town.road_edges for cell in edge}
     for x_cell, y_cell in town.cells:
         for dx, dy in neighbor_deltas:
             nx = x_cell + dx
@@ -142,6 +153,21 @@ def build_and_solve_model(
                 edges.append(((x_cell, y_cell), (nx, ny)))
 
     model = cp_model.CpModel()
+
+    # Calculate which cells are adjacent to roads - these have a lower pipe cost
+    road_cells = set()
+    for (x1, y1), (x2, y2) in town.road_edges:
+        if x1 == x2 and abs(y1 - y2) == 1:
+            y_min = min(y1, y2)
+            candidates = [(x1 - 1, y_min), (x1, y_min)]
+        elif y1 == y2 and abs(x1 - x2) == 1:
+            x_min = min(x1, x2)
+            candidates = [(x_min, y1 - 1), (x_min, y1)]
+        else:
+            continue
+        for cell in candidates:
+            if cell in cell_set:
+                road_cells.add(cell)
 
     # Decision variables
     pipe_binary = {(i, j): model.NewBoolVar(f"pipe[{i},{j}]") for i, j in edges}
