@@ -279,7 +279,7 @@ def _(mo):
 
 
 @app.cell
-def _(CellType, DEMAND, grid_layout, town_layout):
+def _(CellType, DEMAND, grid_layout, road_edges, town_layout):
     cells = [
         (x_index, y_index)
         for y_index, _row in enumerate(grid_layout)
@@ -292,7 +292,26 @@ def _(CellType, DEMAND, grid_layout, town_layout):
         for x_index, _cell in enumerate(_row)
         if _cell == CellType.EC.name
     ]
-    building_demands = []
+    _max_x = max(len(_row) for _row in grid_layout)
+    _max_y = len(grid_layout)
+    _center_x = _max_x / 2
+    _center_y = _max_y / 2
+    road_adjacent_cells = set()
+    for (_x0, _y0), (_x1, _y1) in road_edges:
+        if _x0 == _x1:
+            x = _x0
+            y = min(_y0, _y1)
+            for cell in ((x - 1, y), (x, y)):
+                if cell in _cell_set:
+                    road_adjacent_cells.add(cell)
+        elif _y0 == _y1:
+            y = _y0
+            x = min(_x0, _x1)
+            for cell in ((x, y - 1), (x, y)):
+                if cell in _cell_set:
+                    road_adjacent_cells.add(cell)
+
+    cell_demands = []
     for building_index, _building in enumerate(town_layout):
         _building_type = _building["type"]
         _demand = DEMAND.get(_building_type)
@@ -310,28 +329,30 @@ def _(CellType, DEMAND, grid_layout, town_layout):
             _demand.thermal_demand_kwh_year * _demand.thermal_winter_factor
         )
         _total_demand = _winter_thermal * len(footprint)
-        building_demands.append(
+        footprint_road_cells = [
+            cell for cell in footprint if cell in road_adjacent_cells
+        ]
+        candidate_cells = footprint_road_cells or footprint
+        representative_cell = min(
+            candidate_cells,
+            key=lambda cell: (cell[0] + 0.5 - _center_x) ** 2
+            + (cell[1] + 0.5 - _center_y) ** 2,
+        )
+        cell_demands.append(
             {
-                "id": building_index,
+                "cell": representative_cell,
                 "type": _building_type.value,
                 "demand": _total_demand,
-                "footprint": footprint,
+                "building_id": building_index,
             }
         )
-    return building_demands, cells, energy_center_cells
+    return cell_demands, cells, energy_center_cells
 
 
 @app.cell
-def _(
-    building_demands,
-    cells,
-    energy_center_cells,
-    math,
-    param_form,
-    pywraplp,
-):
+def _(cell_demands, cells, energy_center_cells, math, param_form, pywraplp):
     def build_and_solve_model(cost_energy_center, cost_pipe):
-        _total_demand = sum(building["demand"] for building in building_demands)
+        _total_demand = sum(entry["demand"] for entry in cell_demands)
         if _total_demand == 0:
             return {
                 "status": "no-demand",
@@ -339,6 +360,12 @@ def _(
                 "energy_edges": [],
                 "pipe_binary": {},
             }
+
+        demand_by_cell = {}
+        for entry in cell_demands:
+            demand_by_cell[entry["cell"]] = (
+                demand_by_cell.get(entry["cell"], 0.0) + entry["demand"]
+            )
 
         _cell_set = set(cells)
         neighbor_deltas = [
@@ -376,21 +403,6 @@ def _(
             _cell: solver.BoolVar(f"build_ec[{_cell}]")
             for _cell in energy_center_cells
         }
-        assignment = {}
-        for _building in building_demands:
-            for _cell in _building["footprint"]:
-                assignment[(_building["id"], _cell)] = solver.BoolVar(
-                    f"assign[{_building['id']},{_cell}]"
-                )
-
-        for _building in building_demands:
-            solver.Add(
-                solver.Sum(
-                    assignment[(_building["id"], _cell)]
-                    for _cell in _building["footprint"]
-                )
-                == 1
-            )
 
         big_m = _total_demand
         for i, j in edges:
@@ -404,11 +416,7 @@ def _(
             outflow = solver.Sum(
                 flow[(_cell, neighbor)] for neighbor in neighbors_by_cell[_cell]
             )
-            _demand = solver.Sum(
-                _building["demand"] * assignment[(_building["id"], _cell)]
-                for _building in building_demands
-                if _cell in _building["footprint"]
-            )
+            _demand = demand_by_cell.get(_cell, 0.0)
             generated = _total_demand * build_center.get(_cell, 0.0)
             solver.Add(inflow + generated - outflow - _demand >= 0)
 
@@ -463,7 +471,7 @@ def _(
 
 
 @app.cell
-def _(building_demands, mo, optimisation_result):
+def _(cell_demands, mo, optimisation_result):
     _status = optimisation_result["status"]
     objective = optimisation_result["objective_value"]
     status_md = mo.md(
@@ -472,11 +480,12 @@ def _(building_demands, mo, optimisation_result):
     )
     demand_rows = [
         {
-            "Building": building["id"],
-            "Type": building["type"],
-            "Winter demand (kWh)": round(building["demand"], 2),
+            "Building": entry["building_id"],
+            "Representative cell": entry["cell"],
+            "Type": entry["type"],
+            "Winter demand (kWh)": round(entry["demand"], 2),
         }
-        for building in building_demands
+        for entry in cell_demands
     ]
     demand_table = mo.ui.table(demand_rows)
     return demand_table, status_md
