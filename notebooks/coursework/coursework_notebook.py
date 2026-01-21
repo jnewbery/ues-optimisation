@@ -57,6 +57,20 @@ def _(Path, layout_selector, load_layout):
 
 
 @app.cell
+def _(mo, town):
+    energy_center_options = {
+        f"({x}, {y})": (x, y) for x, y in town.energy_center_cells
+    }
+    energy_center_selector = mo.ui.multiselect(
+        options=energy_center_options,
+        value=list(energy_center_options.values()),
+        label="Energy centre locations (EC cells)",
+    )
+    mo.vstack([mo.md("### Energy centres"), energy_center_selector])
+    return (energy_center_selector,)
+
+
+@app.cell
 def _(mo):
     param_form = (
         mo.md(
@@ -97,7 +111,7 @@ def _(build_cell_demand_summary, mo, town):
 
 
 @app.cell
-def _(build_and_solve_model, param_form, town):
+def _(build_and_solve_model, energy_center_selector, param_form, town):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
@@ -113,6 +127,7 @@ def _(build_and_solve_model, param_form, town):
             cost_energy_center=float(submitted["cost_energy_center"]),
             cost_pipe=float(submitted["cost_pipe"]),
             time_limit_seconds=float(submitted["time_limit_seconds"]),
+            energy_center_cells=list(energy_center_selector.value),
         )
     return (optimisation_result,)
 
