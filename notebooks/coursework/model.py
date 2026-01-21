@@ -71,12 +71,12 @@ def build_cell_demand_summary(town: TownLayout) -> list[dict[str, Any]]:
 
 def build_cell_demands(
     town: TownLayout,
-) -> dict[tuple[int, int], float]:
+) -> dict[tuple[int, int], int]:
     cell_summaries = build_cell_demand_summary(town)
-    cell_demands: dict[tuple[int, int], float] = {}
+    cell_demands: dict[tuple[int, int], int] = {}
     for summary in cell_summaries:
         cell = summary["cell"]
-        cell_demands[cell] = cell_demands.get(cell, 0.0) + summary["demand"]
+        cell_demands[cell] = 1 if summary["demand"] > 0 else 0
     return cell_demands
 
 
@@ -85,13 +85,14 @@ def build_and_solve_model(
     *,
     cost_energy_center: float,
     cost_pipe: float,
-    cell_demands: dict[tuple[int, int], float] | None = None,
+    cell_demands: dict[tuple[int, int], int] | None = None,
 ) -> dict[str, Any]:
     # Allow cell demands to be overridden by calling function
     if cell_demands is None:
         cell_demands = build_cell_demands(town)
 
     total_demand = sum(cell_demands.values())
+    breakpoint()
     if total_demand == 0:
         return {
             "status": "no-demand",
@@ -123,7 +124,7 @@ def build_and_solve_model(
     # Decision variables
     pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in edges}
     flow = {
-        (i, j): solver.NumVar(-solver.infinity(), solver.infinity(), f"flow[{i},{j}]")
+        (i, j): solver.IntVar(-total_demand, total_demand, f"flow[{i},{j}]")
         for i, j in edges
     }
     build_center = {
@@ -132,10 +133,9 @@ def build_and_solve_model(
     }
 
     # Constraints
-    big_m = total_demand
     for i, j in edges:
-        solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
-        solver.Add(flow[(i, j)] >= -big_m * pipe_binary[(i, j)])
+        solver.Add(flow[(i, j)] <= total_demand * pipe_binary[(i, j)])
+        solver.Add(flow[(i, j)] >= -total_demand * pipe_binary[(i, j)])
 
     for cell in town.cells:
         net_flow_terms = []
@@ -144,8 +144,9 @@ def build_and_solve_model(
             direction = -1 if cell == edge[0] else 1
             net_flow_terms.append(direction * flow[edge])
         net_flow = solver.Sum(net_flow_terms) if net_flow_terms else 0.0
-        demand = cell_demands.get(cell, 0.0)
-        generated = total_demand * build_center.get(cell, 0.0)
+        demand = cell_demands.get(cell, 0)
+        generated = total_demand if build_center.get(cell, 0.0) else 0
+        print(f"Cell {cell}: net_flow + generated >= demand --> {net_flow} + {generated} >= {demand}")
         solver.Add(net_flow + generated - demand >= 0)
 
     # Objective function
@@ -153,16 +154,19 @@ def build_and_solve_model(
     for (i, j), var in pipe_binary.items():
         dx = i[0] - j[0]
         dy = i[1] - j[1]
-        length = math.sqrt(dx * dx + dy * dy)
+        # length = math.sqrt(dx * dx + dy * dy)
+        length = 1
         objective_terms.append(var * cost_pipe * length)
     objective_terms.extend(
         build_center[cell] * cost_energy_center
         for cell in town.energy_center_cells
     )
 
+    breakpoint()
     # Solve
     solver.Minimize(solver.Sum(objective_terms))
     status = solver.Solve()
+    breakpoint()
 
     # Extract results
     pipe_binary_values = {edge: pipe_binary[edge].solution_value() for edge in pipe_binary}
