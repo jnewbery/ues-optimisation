@@ -162,6 +162,9 @@ def build_and_solve_model(
     for (i, j), var in pipe_binary.items():
         length = 1
         objective_terms.append(var * cost_pipe * length)
+    energy_center_cost = cost_energy_center * len(energy_center_cells)
+    if energy_center_cost:
+        objective_terms.append(energy_center_cost)
 
     # Solve
     model.Minimize(sum(objective_terms))

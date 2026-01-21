@@ -134,9 +134,9 @@ def _(build_and_solve_model, param_form, town):
         ]
         optimisation_result = build_and_solve_model(
             town,
-            cost_energy_center=float(submitted["cost_energy_center"]),
-            cost_pipe=float(submitted["cost_pipe"]),
-            time_limit_seconds=float(submitted["time_limit_seconds"]),
+            cost_energy_center=int(submitted["cost_energy_center"]),
+            cost_pipe=int(submitted["cost_pipe"]),
+            time_limit_seconds=int(submitted["time_limit_seconds"]),
             energy_center_cells=list(energy_center_cells),
         )
     return (optimisation_result,)

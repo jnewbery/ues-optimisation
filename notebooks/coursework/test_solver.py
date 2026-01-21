@@ -11,9 +11,9 @@ def _main(layout_path: Path) -> None:
 
     optimisation_result = build_and_solve_model(
         town,
-        cost_energy_center=2_000_000.0,
-        cost_pipe=100_000.0,
-        time_limit_seconds=30.0,
+        cost_energy_center=2_000_000,
+        cost_pipe=100_000,
+        time_limit_seconds=30,
     )
 
     print("Optimisation Result:")
