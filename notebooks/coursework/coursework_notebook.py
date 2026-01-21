@@ -13,14 +13,14 @@ def _():
 
     from constants import DEMAND
     from layout import load_layout, CellType
-    from model import build_and_solve_model, build_building_demands
+    from model import build_and_solve_model, build_cell_demand_summary
     from visualisation import build_town_plot
     return (
         CellType,
         DEMAND,
         Path,
         build_and_solve_model,
-        build_building_demands,
+        build_cell_demand_summary,
         build_town_plot,
         go,
         load_layout,
@@ -77,19 +77,20 @@ def _(mo):
 
 
 @app.cell
-def _(build_building_demands, mo, town):
-    # Update building demands if necessary
-    building_demands = build_building_demands(town)
+def _(build_cell_demand_summary, mo, town):
+    # Update demand summary if necessary
+    cell_demand_summary = build_cell_demand_summary(town)
     demand_rows = [
         {
-            "Building": building["id"],
-            "Type": building["type"],
-            "Winter demand (kWh)": round(building["demand"], 2),
+            "Building": summary["id"],
+            "Type": summary["type"],
+            "Representative cell": f"{summary['cell']}",
+            "Winter demand (kWh)": round(summary["demand"], 2),
         }
-        for building in building_demands
+        for summary in cell_demand_summary
     ]
     demand_table = mo.ui.table(demand_rows)
-    return building_demands, demand_table
+    return cell_demand_summary, demand_table
 
 
 @app.cell
