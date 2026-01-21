@@ -160,9 +160,10 @@ def build_and_solve_model(
         build_center[cell] * cost_energy_center
         for cell in town.energy_center_cells
     )
-    solver.Minimize(solver.Sum(objective_terms))
 
+    solver.Minimize(solver.Sum(objective_terms))
     status = solver.Solve()
+
     pipe_binary_values = {edge: pipe_binary[edge].solution_value() for edge in pipe_binary}
     energy_edges = []
     for (i, j), value in pipe_binary_values.items():

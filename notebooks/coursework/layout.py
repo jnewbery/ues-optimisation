@@ -2,6 +2,7 @@ import enum
 import json
 from dataclasses import dataclass
 from typing import Any
+from pathlib import Path
 
 
 Cell = tuple[int, int]
@@ -28,7 +29,7 @@ class TownLayout:
     energy_center_cells: list[Cell]
 
 
-def _build_town_layout(grid_layout):
+def _build_town_layout(grid_layout: list[list[str]]) -> list[dict[str, Any]]:
     merge_types = {"H", "OF", "SCH", "SC"}
     town_layout = []
     visited = set()
@@ -91,21 +92,21 @@ def _build_town_layout(grid_layout):
     return town_layout
 
 
-def load_layout(layout_path):
+def load_layout(layout_path: Path) -> TownLayout:
     with layout_path.open() as handle:
         layout_data = json.load(handle)
-    grid_layout = layout_data["grid_layout"]
+    grid_layout: list[list[str]] = layout_data["grid_layout"]
     road_edges = [
         (tuple(edge[0]), tuple(edge[1]))
         for edge in layout_data["road_edges"]
     ]
     buildings = _build_town_layout(grid_layout)
-    cells = [
+    cells: list[Cell] = [
         (x_index, y_index)
         for y_index, row in enumerate(grid_layout)
         for x_index, _ in enumerate(row)
     ]
-    energy_center_cells = [
+    energy_center_cells: list[Cell] = [
         (x_index, y_index)
         for y_index, row in enumerate(grid_layout)
         for x_index, cell in enumerate(row)
