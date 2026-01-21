@@ -1,7 +1,7 @@
 import math
 from typing import Any, Sequence
 
-from ortools.linear_solver import pywraplp
+from gamspy import Container, Equation, Model, Parameter, Sense, Set, Sum, Variable
 
 from constants import DEMAND
 from layout import TownLayout
@@ -121,72 +121,129 @@ def build_and_solve_model(
             if (x_cell, y_cell) < (nx, ny):
                 edges.append(((x_cell, y_cell), (nx, ny)))
 
-    solver = pywraplp.Solver.CreateSolver("SCIP")
-    if solver is None:
-        raise RuntimeError("Failed to create OR-Tools solver.")
+    def _variable_to_dict(variable: Variable) -> dict[Any, float]:
+        if hasattr(variable, "to_dict"):
+            data = variable.to_dict()
+            if isinstance(data, dict):
+                return data
+        records = variable.records
+        if records is None:
+            return {}
+        index_columns = [
+            column
+            for column in records.columns
+            if column not in {"level", "marginal", "lower", "upper", "scale"}
+        ]
+        values: dict[Any, float] = {}
+        for _, row in records.iterrows():
+            key = tuple(row[column] for column in index_columns)
+            if len(key) == 1:
+                key = key[0]
+            values[key] = float(row["level"])
+        return values
 
-    # Decision variables
-    pipe_binary = {(i, j): solver.BoolVar(f"pipe[{i},{j}]") for i, j in edges}
-    flow = {
-        (i, j): solver.NumVar(-solver.infinity(), solver.infinity(), f"flow[{i},{j}]")
-        for i, j in edges
-    }
-    build_center = {
-        cell: solver.BoolVar(f"build_ec[{cell}]")
-        for cell in town.energy_center_cells
-    }
+    cell_ids = {cell: f"c{idx}" for idx, cell in enumerate(town.cells)}
+    id_to_cell = {cell_id: cell for cell, cell_id in cell_ids.items()}
+    edge_records = [(cell_ids[i], cell_ids[j]) for i, j in edges]
+    energy_cell_ids = [cell_ids[cell] for cell in town.energy_center_cells]
 
-    # Constraints
-    big_m = total_demand
-    for i, j in edges:
-        solver.Add(flow[(i, j)] <= big_m * pipe_binary[(i, j)])
-        solver.Add(flow[(i, j)] >= -big_m * pipe_binary[(i, j)])
+    model_container = Container()
+    cells_set = Set(model_container, "cells", records=list(cell_ids.values()))
+    edges_set = Set(model_container, "edges", domain=[cells_set, cells_set], records=edge_records)
+    demand = Parameter(
+        model_container,
+        "demand",
+        domain=[cells_set],
+        records=[(cell_ids[cell], value) for cell, value in cell_demands.items()],
+    )
+    edge_length = Parameter(
+        model_container,
+        "edge_length",
+        domain=[edges_set],
+        records=[
+            (
+                cell_ids[i],
+                cell_ids[j],
+                math.sqrt((i[0] - j[0]) ** 2 + (i[1] - j[1]) ** 2),
+            )
+            for i, j in edges
+        ],
+    )
+    incidence = Parameter(
+        model_container,
+        "incidence",
+        domain=[cells_set, edges_set],
+        records=[
+            (
+                cell_ids[cell],
+                cell_ids[i],
+                cell_ids[j],
+                -1.0 if cell == i else 1.0,
+            )
+            for i, j in edges
+            for cell in (i, j)
+        ],
+    )
+    energy_indicator = Parameter(
+        model_container,
+        "energy_indicator",
+        domain=[cells_set],
+        records=[(cell_id, 1.0) for cell_id in energy_cell_ids],
+    )
+    big_m = Parameter(model_container, "big_m", records=total_demand)
+    pipe_cost = Parameter(model_container, "pipe_cost", records=cost_pipe)
+    center_cost = Parameter(model_container, "center_cost", records=cost_energy_center)
 
-    for cell in town.cells:
-        net_flow_terms = []
-        for neighbor in neighbors_by_cell[cell]:
-            edge = (cell, neighbor) if cell < neighbor else (neighbor, cell)
-            direction = -1 if cell == edge[0] else 1
-            net_flow_terms.append(direction * flow[edge])
-        net_flow = solver.Sum(net_flow_terms) if net_flow_terms else 0.0
-        demand = cell_demands.get(cell, 0.0)
-        generated = total_demand * build_center.get(cell, 0.0)
-        solver.Add(net_flow + generated - demand >= 0)
+    pipe_binary = Variable(model_container, "pipe", domain=[edges_set], type="Binary")
+    flow = Variable(model_container, "flow", domain=[edges_set], type="Free")
+    build_center = Variable(model_container, "build_center", domain=[cells_set], type="Binary")
+    build_center.up[cells_set] = energy_indicator[cells_set]
 
-    # Objective function
-    objective_terms = []
-    for (i, j), var in pipe_binary.items():
-        dx = i[0] - j[0]
-        dy = i[1] - j[1]
-        length = math.sqrt(dx * dx + dy * dy)
-        objective_terms.append(var * cost_pipe * length)
-    objective_terms.extend(
-        build_center[cell] * cost_energy_center
-        for cell in town.energy_center_cells
+    flow_upper = Equation(model_container, "flow_upper", domain=[edges_set])
+    flow_lower = Equation(model_container, "flow_lower", domain=[edges_set])
+    balance = Equation(model_container, "balance", domain=[cells_set])
+
+    flow_upper[edges_set] = flow[edges_set] <= big_m * pipe_binary[edges_set]
+    flow_lower[edges_set] = flow[edges_set] >= -big_m * pipe_binary[edges_set]
+    balance[cells_set] = (
+        Sum(edges_set, incidence[cells_set, edges_set] * flow[edges_set])
+        + total_demand * build_center[cells_set]
+        - demand[cells_set]
+        >= 0
     )
 
-    # Solve
-    solver.Minimize(solver.Sum(objective_terms))
-    status = solver.Solve()
+    objective = Sum(edges_set, pipe_binary[edges_set] * pipe_cost * edge_length[edges_set]) + Sum(
+        cells_set, build_center[cells_set] * center_cost
+    )
+    model = Model(
+        model_container,
+        "energy_network",
+        equations=[flow_upper, flow_lower, balance],
+        sense=Sense.MIN,
+        objective=objective,
+        problem="MIP",
+    )
+    model.solve(solver="CPLEX")
 
-    # Extract results
-    pipe_binary_values = {edge: pipe_binary[edge].solution_value() for edge in pipe_binary}
+    pipe_binary_values_raw = _variable_to_dict(pipe_binary)
+    pipe_binary_values = {
+        (id_to_cell[i], id_to_cell[j]): value
+        for (i, j), value in pipe_binary_values_raw.items()
+    }
     energy_edges = []
     for (i, j), value in pipe_binary_values.items():
         if value <= 0.5:
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
     energy_centers = []
-    if status == pywraplp.Solver.OPTIMAL:
-        for cell, var in build_center.items():
-            if var.solution_value() > 0.5:
-                energy_centers.append(cell)
+    build_center_values = _variable_to_dict(build_center)
+    for cell_id, value in build_center_values.items():
+        if value > 0.5:
+            energy_centers.append(id_to_cell[cell_id])
 
     return {
-        "status": status,
-        "objective_value": solver.Objective().Value()
-        if status == pywraplp.Solver.OPTIMAL
-        else None,
+        "status": model.status,
+        "objective_value": model.objective_value,
         "energy_edges": energy_edges,
         "pipe_binary": pipe_binary_values,
         "energy_centers": energy_centers,
