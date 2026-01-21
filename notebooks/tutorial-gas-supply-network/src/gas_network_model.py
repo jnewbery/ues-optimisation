@@ -94,14 +94,14 @@ def build_and_solve_model(data: GasNetworkData) -> dict:
     pairs_set = Set(model_container, "pairs", domain=[cells_set, cells_set], records=pairs)
 
     # Variables
-    pipe_binary = Variable(model_container, "pipe", domain=[pairs_set], type="Binary")
-    flow = Variable(model_container, "flow", domain=[pairs_set], type="Positive")
+    pipe_binary = Variable(model_container, "pipe", domain=[cells_set, cells_set], type="Binary")
+    flow = Variable(model_container, "flow", domain=[cells_set, cells_set], type="Positive")
 
     # Parameters
     distance = Parameter(
         model_container,
         "distance",
-        domain=[pairs_set],
+        domain=[cells_set, cells_set],
         records=[
             (
                 i,
@@ -133,27 +133,39 @@ def build_and_solve_model(data: GasNetworkData) -> dict:
     incidence = Parameter(
         model_container,
         "incidence",
-        domain=[cells_set, pairs_set],
+        domain=[cells_set, cells_set, cells_set],
         records=[
             (cell, i, j, 1.0 if cell == j else -1.0)
             for i, j in pairs
             for cell in (i, j)
         ],
     )
+    edge_indicator = Parameter(
+        model_container,
+        "edge_indicator",
+        domain=[cells_set, cells_set],
+        records=[(i, j, 1.0) for i, j in pairs],
+    )
 
     # Constraints
-    flow_limit = Equation(model_container, "flow_limit", domain=[pairs_set])
+    flow_limit = Equation(model_container, "flow_limit", domain=[cells_set, cells_set])
     balance = Equation(model_container, "balance", domain=[cells_set])
 
-    flow_limit[pairs_set] = flow[pairs_set] <= max_flow * pipe_binary[pairs_set]
+    pipe_binary.up[cells_set, cells_set] = edge_indicator[cells_set, cells_set]
+    flow.up[cells_set, cells_set] = max_flow * edge_indicator[cells_set, cells_set]
+    flow_limit[cells_set, cells_set].where[pairs_set] = (
+        flow[cells_set, cells_set] <= max_flow * pipe_binary[cells_set, cells_set]
+    )
     balance[cells_set] = (
-        Sum(pairs_set, incidence[cells_set, pairs_set] * flow[pairs_set])
+        Sum(pairs_set, incidence[cells_set, cells_set, cells_set] * flow[cells_set, cells_set])
         + supply[cells_set]
         - demand[cells_set]
         >= 0
     )
 
-    objective = Sum(pairs_set, pipe_binary[pairs_set] * cost_pipe * distance[pairs_set])
+    objective = Sum(
+        pairs_set, pipe_binary[cells_set, cells_set] * cost_pipe * distance[cells_set, cells_set]
+    )
     model = Model(
         model_container,
         "gas_network",

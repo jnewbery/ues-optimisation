@@ -159,7 +159,7 @@ def build_and_solve_model(
     edge_length = Parameter(
         model_container,
         "edge_length",
-        domain=[edges_set],
+        domain=[cells_set, cells_set],
         records=[
             (
                 cell_ids[i],
@@ -172,7 +172,7 @@ def build_and_solve_model(
     incidence = Parameter(
         model_container,
         "incidence",
-        domain=[cells_set, edges_set],
+        domain=[cells_set, cells_set, cells_set],
         records=[
             (
                 cell_ids[cell],
@@ -190,31 +190,47 @@ def build_and_solve_model(
         domain=[cells_set],
         records=[(cell_id, 1.0) for cell_id in energy_cell_ids],
     )
+    edge_indicator = Parameter(
+        model_container,
+        "edge_indicator",
+        domain=[cells_set, cells_set],
+        records=[(cell_ids[i], cell_ids[j], 1.0) for i, j in edges],
+    )
     big_m = Parameter(model_container, "big_m", records=total_demand)
     pipe_cost = Parameter(model_container, "pipe_cost", records=cost_pipe)
     center_cost = Parameter(model_container, "center_cost", records=cost_energy_center)
 
-    pipe_binary = Variable(model_container, "pipe", domain=[edges_set], type="Binary")
-    flow = Variable(model_container, "flow", domain=[edges_set], type="Free")
+    pipe_binary = Variable(model_container, "pipe", domain=[cells_set, cells_set], type="Binary")
+    flow = Variable(model_container, "flow", domain=[cells_set, cells_set], type="Free")
     build_center = Variable(model_container, "build_center", domain=[cells_set], type="Binary")
     build_center.up[cells_set] = energy_indicator[cells_set]
+    pipe_binary.up[cells_set, cells_set] = edge_indicator[cells_set, cells_set]
+    flow.up[cells_set, cells_set] = big_m * edge_indicator[cells_set, cells_set]
+    flow.lo[cells_set, cells_set] = -big_m * edge_indicator[cells_set, cells_set]
 
-    flow_upper = Equation(model_container, "flow_upper", domain=[edges_set])
-    flow_lower = Equation(model_container, "flow_lower", domain=[edges_set])
+    flow_upper = Equation(model_container, "flow_upper", domain=[cells_set, cells_set])
+    flow_lower = Equation(model_container, "flow_lower", domain=[cells_set, cells_set])
     balance = Equation(model_container, "balance", domain=[cells_set])
 
-    flow_upper[edges_set] = flow[edges_set] <= big_m * pipe_binary[edges_set]
-    flow_lower[edges_set] = flow[edges_set] >= -big_m * pipe_binary[edges_set]
+    flow_upper[cells_set, cells_set].where[edges_set] = (
+        flow[cells_set, cells_set] <= big_m * pipe_binary[cells_set, cells_set]
+    )
+    flow_lower[cells_set, cells_set].where[edges_set] = (
+        flow[cells_set, cells_set] >= -big_m * pipe_binary[cells_set, cells_set]
+    )
     balance[cells_set] = (
-        Sum(edges_set, incidence[cells_set, edges_set] * flow[edges_set])
+        Sum(
+            edges_set,
+            incidence[cells_set, cells_set, cells_set] * flow[cells_set, cells_set],
+        )
         + total_demand * build_center[cells_set]
         - demand[cells_set]
         >= 0
     )
 
-    objective = Sum(edges_set, pipe_binary[edges_set] * pipe_cost * edge_length[edges_set]) + Sum(
-        cells_set, build_center[cells_set] * center_cost
-    )
+    objective = Sum(
+        edges_set, pipe_binary[cells_set, cells_set] * pipe_cost * edge_length[cells_set, cells_set]
+    ) + Sum(cells_set, build_center[cells_set] * center_cost)
     model = Model(
         model_container,
         "energy_network",
