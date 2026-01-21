@@ -64,11 +64,14 @@ def _(mo):
             Energy centre build cost (£): {cost_energy_center}
 
             Pipe cost per unit length (£): {cost_pipe}
+
+            Time limit (seconds): {time_limit_seconds}
             """
         )
         .batch(
-            cost_energy_center=mo.ui.number(value=2_000_000.0, step=100_000.0),
-            cost_pipe=mo.ui.number(value=100_000.0, step=10_000.0),
+            cost_energy_center=mo.ui.number(value=2_000_000, step=100_000),
+            cost_pipe=mo.ui.number(value=100_000, step=10_000),
+            time_limit_seconds=mo.ui.number(value=30, step=5),
         )
         .form(submit_button_label="Run optimisation", label="Model Parameters")
     )
@@ -90,7 +93,7 @@ def _(build_cell_demand_summary, mo, town):
         for summary in cell_demand_summary
     ]
     demand_table = mo.ui.table(demand_rows)
-    return cell_demand_summary, demand_table
+    return (demand_table,)
 
 
 @app.cell
@@ -109,6 +112,7 @@ def _(build_and_solve_model, param_form, town):
             town,
             cost_energy_center=float(submitted["cost_energy_center"]),
             cost_pipe=float(submitted["cost_pipe"]),
+            time_limit_seconds=float(submitted["time_limit_seconds"]),
         )
     return (optimisation_result,)
 
@@ -120,7 +124,9 @@ def _(mo, optimisation_result):
     objective_str = f"£{round(objective, 2)}" if objective else "None"
     status_md = mo.md(
         f"**Solver status:** {_status}  \n"
-        f"**Objective value:** {objective_str}"
+        f"**Objective value:** {objective_str}  \n\n"
+        "Note: the optimisation uses OR-Tools CP-SAT with an integer objective. "
+        "Pipe costs are internally scaled to integers and rescaled for display."
     )
     return (status_md,)
 
