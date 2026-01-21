@@ -5,7 +5,7 @@ from model import build_and_solve_model
 
 layout_path = (
     Path("data")
-    / "town_layout_small.json"
+    / "town_layout_tiny.json"
 )
 town = load_layout(layout_path)
 

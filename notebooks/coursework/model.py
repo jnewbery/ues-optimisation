@@ -92,7 +92,7 @@ def build_and_solve_model(
         cell_demands = build_cell_demands(town)
 
     total_demand = sum(cell_demands.values())
-    breakpoint()
+    # breakpoint()
     if total_demand == 0:
         return {
             "status": "no-demand",
@@ -118,6 +118,7 @@ def build_and_solve_model(
                 edges.append(((x_cell, y_cell), (nx, ny)))
 
     solver = pywraplp.Solver.CreateSolver("SCIP")
+    solver = pywraplp.Solver.CreateSolver("SCIP")
     if solver is None:
         raise RuntimeError("Failed to create OR-Tools solver.")
 
@@ -127,10 +128,10 @@ def build_and_solve_model(
         (i, j): solver.IntVar(-total_demand, total_demand, f"flow[{i},{j}]")
         for i, j in edges
     }
-    build_center = {
-        cell: solver.BoolVar(f"build_ec[{cell}]")
-        for cell in town.energy_center_cells
-    }
+    # build_center = {
+    #     cell: solver.BoolVar(f"build_ec[{cell}]")
+    #     for cell in town.energy_center_cells
+    # }
 
     # Constraints
     for i, j in edges:
@@ -145,8 +146,9 @@ def build_and_solve_model(
             net_flow_terms.append(direction * flow[edge])
         net_flow = solver.Sum(net_flow_terms) if net_flow_terms else 0.0
         demand = cell_demands.get(cell, 0)
-        generated = total_demand if build_center.get(cell, 0.0) else 0
-        print(f"Cell {cell}: net_flow + generated >= demand --> {net_flow} + {generated} >= {demand}")
+        generated = total_demand if cell == (0, 0) else 0
+        # generated = total_demand if build_center.get(cell, 0.0) else 0
+        # print(f"Cell {cell}: net_flow + generated >= demand --> {net_flow} + {generated} >= {demand}")
         solver.Add(net_flow + generated - demand >= 0)
 
     # Objective function
@@ -157,16 +159,16 @@ def build_and_solve_model(
         # length = math.sqrt(dx * dx + dy * dy)
         length = 1
         objective_terms.append(var * cost_pipe * length)
-    objective_terms.extend(
-        build_center[cell] * cost_energy_center
-        for cell in town.energy_center_cells
-    )
+    # objective_terms.extend(
+    #     build_center[cell] * cost_energy_center
+    #     for cell in town.energy_center_cells
+    # )
 
-    breakpoint()
+    # breakpoint()
     # Solve
     solver.Minimize(solver.Sum(objective_terms))
     status = solver.Solve()
-    breakpoint()
+    # breakpoint()
 
     # Extract results
     pipe_binary_values = {edge: pipe_binary[edge].solution_value() for edge in pipe_binary}
@@ -176,10 +178,11 @@ def build_and_solve_model(
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
     energy_centers = []
-    if status == pywraplp.Solver.OPTIMAL:
-        for cell, var in build_center.items():
-            if var.solution_value() > 0.5:
-                energy_centers.append(cell)
+    energy_centers.append((0, 0))
+    # if status == pywraplp.Solver.OPTIMAL:
+    #     for cell, var in build_center.items():
+    #         if var.solution_value() > 0.5:
+    #             energy_centers.append(cell)
 
     return {
         "status": status,
