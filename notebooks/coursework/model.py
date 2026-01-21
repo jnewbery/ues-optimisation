@@ -87,6 +87,7 @@ def build_and_solve_model(
     cost_pipe: int,
     time_limit_seconds: int | None = None,
     cell_demands: dict[tuple[int, int], int] | None = None,
+    energy_center_cells: list[tuple[int, int]] | None = None,
 ) -> dict[str, Any]:
     # Allow cell demands to be overridden by calling function
     if cell_demands is None:
@@ -97,6 +98,17 @@ def build_and_solve_model(
         return {
             "status": "no-demand",
             "objective_value": 0.0,
+            "energy_edges": [],
+            "pipe_binary": {},
+            "energy_centers": [],
+        }
+
+    if energy_center_cells is None:
+        energy_center_cells = town.energy_center_cells
+    if not energy_center_cells:
+        return {
+            "status": "no-energy-centers",
+            "objective_value": None,
             "energy_edges": [],
             "pipe_binary": {},
             "energy_centers": [],
@@ -135,6 +147,7 @@ def build_and_solve_model(
         model.Add(flow[(i, j)] <= total_demand * pipe_binary[(i, j)])
         model.Add(flow[(i, j)] >= -total_demand * pipe_binary[(i, j)])
 
+    energy_center_set = set(energy_center_cells)
     for cell in town.cells:
         net_flow_terms = []
         for neighbor in neighbors_by_cell[cell]:
@@ -143,7 +156,7 @@ def build_and_solve_model(
             net_flow_terms.append(direction * flow[edge])
         net_flow = sum(net_flow_terms) if net_flow_terms else 0
         demand = cell_demands.get(cell, 0)
-        generated = total_demand if cell == (0, 0) else 0
+        generated = total_demand if cell in energy_center_set else 0
         # generated = total_demand if build_center.get(cell, 0.0) else 0
         # print(f"Cell {cell}: net_flow + generated >= demand --> {net_flow} + {generated} >= {demand}")
         model.Add(net_flow + generated - demand >= 0)
@@ -173,8 +186,7 @@ def build_and_solve_model(
         if value <= 0:
             continue
         energy_edges.append((i[0] + 0.5, i[1] + 0.5, j[0] + 0.5, j[1] + 0.5))
-    energy_centers = []
-    energy_centers.append((0, 0))
+    energy_centers = list(energy_center_cells)
     # if status == pywraplp.Solver.OPTIMAL:
     #     for cell, var in build_center.items():
     #         if var.solution_value() > 0.5:
