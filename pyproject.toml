@@ -14,4 +14,7 @@ dependencies = [
     "poethepoet>=0.38.0",
 ]
 [tool.poe.tasks]
-notebook = "marimo edit notebooks"
+edit = "marimo edit notebooks"
+# Currently only runs the coursework notebook. See https://github.com/jnewbery/energy-data/edit/m/server.py for a way to server multiple notebooks.
+run = "marimo run notebooks/coursework/coursework_notebook.py"
+test = "python notebooks/coursework/test_solver.py"

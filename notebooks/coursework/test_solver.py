@@ -5,7 +5,7 @@ from layout import load_layout
 from model import build_and_solve_model, SolverParameters
 from argparse import ArgumentParser
 
-LAYOUT_DIR = Path("data")
+LAYOUT_DIR = Path(__file__).resolve().parent / "data"
 
 def _main(layout_path: Path, time_limit: int, gap_limit: float) -> None:
     town = load_layout(layout_path)
@@ -29,15 +29,13 @@ def _main(layout_path: Path, time_limit: int, gap_limit: float) -> None:
 
 if __name__ == "__main__":
     arg_parser = ArgumentParser(description="Run town energy optimisation.")
-    layouts = [
-        p.name for p in LAYOUT_DIR.glob("*.json")
-    ]
+    layouts = [p.name for p in LAYOUT_DIR.glob("*.json")]
 
     arg_parser.add_argument(
         "--layout",
         "-l",
         type=Path,
-        default=Path("data") / "town_layout_tiny.json",
+        default=LAYOUT_DIR / "town_layout_tiny.json",
         help="Path to the town layout JSON file. Options: "+ ", ".join(layouts),
     )
     arg_parser.add_argument(
