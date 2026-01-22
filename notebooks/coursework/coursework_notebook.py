@@ -14,11 +14,12 @@ def _():
 
     import constants
     from layout import load_layout, CellType
-    from model import build_and_solve_model, build_cell_demand_summary
+    from model import build_and_solve_model, build_cell_demand_summary, SolverParameters
     from visualisation import build_town_plot
     return (
         CellType,
         Path,
+        SolverParameters,
         build_and_solve_model,
         build_cell_demand_summary,
         build_town_plot,
@@ -73,17 +74,22 @@ def _(constants, dedent, mo, town):
     param_form = (
         mo.md(
             dedent("""
-        Energy centre build cost (£): {cost_energy_center}
+                ### Model parameters
 
-        Pipe cost per unit length (£): {cost_pipe}
+                Energy centre build cost (£): {cost_energy_center}
 
-        Pipe cost per unit length along roads (£): {cost_pipe_road}
+                Pipe cost per unit length (£): {cost_pipe}
 
-        Time limit (seconds): {time_limit_seconds}
+                Pipe cost per unit length along roads (£): {cost_pipe_road}
 
-        ---
+                ### Solver parameters
 
-        Energy centres:
+                Time limit (seconds): {time_limit_seconds}
+                Relative gap limit: {relative_gap_limit}
+
+                ---
+
+                Energy centres:
 
             """)
             + energy_center_md
@@ -93,9 +99,10 @@ def _(constants, dedent, mo, town):
             cost_pipe=mo.ui.number(value=constants.HEAT_NETWORK_PIPE_COST_METER, step=10_000),
             cost_pipe_road=mo.ui.number(value=constants.HEAT_NETWORK_PIPE_COST_METER_ROAD, step=10_000),
             time_limit_seconds=mo.ui.number(value=30, step=5),
+            relative_gap_limit=mo.ui.number(value=0.05, step=0.01),
             **energy_center_checkboxes,
         )
-        .form(submit_button_label="Run optimisation", label="Model Parameters")
+        .form(submit_button_label="Run optimisation", label="Parameters")
     )
     param_form
     return (param_form,)
@@ -119,7 +126,7 @@ def _(build_cell_demand_summary, mo, town):
 
 
 @app.cell
-def _(build_and_solve_model, param_form, town):
+def _(SolverParameters, build_and_solve_model, param_form, town):
     submitted = param_form.value
     if submitted is None:
         optimisation_result = {
@@ -136,12 +143,16 @@ def _(build_and_solve_model, param_form, town):
             for x, y in town.energy_center_cells
             if submitted.get(f"({x}, {y})", False)
         ]
+        solver_params = SolverParameters(
+            time_limit_seconds=int(submitted["time_limit_seconds"]),
+            relative_gap_limit=float(submitted["relative_gap_limit"]),
+        )
         optimisation_result = build_and_solve_model(
             town,
             cost_energy_center=int(submitted["cost_energy_center"]),
             cost_pipe=int(submitted["cost_pipe"]),
             cost_pipe_road=int(submitted["cost_pipe_road"]),
-            time_limit_seconds=int(submitted["time_limit_seconds"]),
+            solver_params=solver_params,
             energy_center_cells=list(energy_center_cells),
         )
     return (optimisation_result,)

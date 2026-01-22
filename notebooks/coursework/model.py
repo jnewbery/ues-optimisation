@@ -1,10 +1,17 @@
 from math import sqrt
 from typing import Any, Sequence
+from dataclasses import dataclass
 
 from ortools.sat.python import cp_model
 
 from constants import DEMAND, HEAT_NETWORK_CONNECTION_COST_BUILDING
 from layout import TownLayout
+
+@dataclass
+class SolverParameters():
+    time_limit_seconds: int = 30
+    relative_gap_limit: float = 0.01
+    log_search_progress: bool = True
 
 
 def _map_center(town: TownLayout) -> tuple[float, float]:
@@ -117,6 +124,7 @@ def build_and_solve_model(
     cost_energy_center: int,
     cost_pipe: int,
     cost_pipe_road: int,
+    solver_params: SolverParameters,
     time_limit_seconds: int | None = None,
     cell_demands: dict[tuple[int, int], int] | None = None,
     energy_center_cells: list[tuple[int, int]] | None = None,
@@ -230,12 +238,15 @@ def build_and_solve_model(
     connection_cost = _calculate_connection_cost(town)
     if connection_cost:
         objective_terms.append(connection_cost)
+    model.Minimize(sum(objective_terms))
+
+    # Solver parameters
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = solver_params.time_limit_seconds
+    solver.parameters.relative_gap_limit = solver_params.relative_gap_limit
+    solver.parameters.log_search_progress = solver_params.log_search_progress
 
     # Solve
-    model.Minimize(sum(objective_terms))
-    solver = cp_model.CpSolver()
-    if time_limit_seconds is not None:
-        solver.parameters.max_time_in_seconds = float(time_limit_seconds)
     status = solver.Solve(model)
 
     # Extract results
