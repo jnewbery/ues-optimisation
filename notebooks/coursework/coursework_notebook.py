@@ -232,6 +232,73 @@ def _(
 
 
 @app.cell
+def _(mo):
+    cell_type_colors = [
+        ("low density housing", "rgb(255, 178, 220)"),
+        ("medium density housing", "rgb(255, 0, 255)"),
+        ("high density housing", "rgb(220, 25, 25)"),
+        ("hospital", "rgb(0, 204, 255)"),
+        ("shopping centre", "rgb(255, 204, 0)"),
+        ("school", "rgb(160, 70, 20)"),
+        ("office", "rgb(255, 255, 0)"),
+        ("green space", "rgb(20, 163, 58)"),
+        ("open space", "rgb(210, 210, 210)"),
+        ("potential energy centre location", "rgb(60, 60, 60)"),
+    ]
+
+    def _swatch(color: str, shape: str = "square") -> str:
+        if shape == "line":
+            style = (
+                "display:inline-block; width:24px; height:4px; "
+                f"background:{color}; border:1px solid #333; "
+                "vertical-align:middle; margin-right:6px;"
+            )
+        else:
+            style = (
+                "display:inline-block; width:14px; height:14px; "
+                f"background:{color}; border:1px solid #333; "
+                "vertical-align:middle; margin-right:6px;"
+            )
+            if shape == "dot":
+                style += " border-radius:50%;"
+        return f"<span style=\"{style}\"></span>"
+
+    rows = []
+    for label, color in cell_type_colors:
+        rows.append(f"<div>{_swatch(color)}{label}</div>")
+    energy_center_key = (
+        "<span style=\"display:inline-block; width:16px; height:16px; "
+        "background:rgb(224, 224, 0); border:1px solid #333; "
+        "border-radius:50%; position:relative; vertical-align:middle; "
+        "margin-right:6px;\">"
+        "<span style=\"position:absolute; top:2px; left:2px; width:10px; "
+        "height:10px; background:rgb(192, 0, 0); border-radius:50%;\"></span>"
+        "</span>"
+    )
+    pipes_key = (
+        "<span style=\"display:inline-block; width:24px; height:6px; "
+        "background:rgb(224, 224, 0); border:1px solid #333; "
+        "vertical-align:middle; margin-right:6px; position:relative;\">"
+        "<span style=\"position:absolute; left:0; right:0; top:2px; "
+        "height:2px; background:rgb(192, 0, 0);\"></span>"
+        "</span>"
+    )
+    rows.append(f"<div>{energy_center_key}energy centre</div>")
+    rows.append(f"<div>{pipes_key}pipes</div>")
+    rows.append(f"<div>{_swatch('rgb(0, 0, 0)', 'line')}roads</div>")
+
+    key_panel = mo.vstack(
+        [
+            mo.md("### Key"),
+            mo.md("".join(rows)),
+        ],
+        align="start",
+        gap=0,
+    )
+    return (key_panel,)
+
+
+@app.cell
 def _(
     CellType,
     Path,
@@ -239,6 +306,7 @@ def _(
     center_lookup,
     constants,
     icon_map,
+    key_panel,
     mo,
     plot,
 ):
@@ -319,8 +387,9 @@ def _(
             align="center",
         )
 
+    plot_with_key = mo.vstack([plot, key_panel], align="start", gap=0.5)
     layout = mo.hstack(
-        [plot, info_panel],
+        [plot_with_key, info_panel],
         justify="start",
         align="start",
         widths=[3, 1],

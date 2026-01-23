@@ -12,7 +12,7 @@ class CellType(enum.StrEnum):
     H20 = "low density housing"
     H30 = "medium density housing"
     H40 = "high density housing"
-    EC = "potential energy centre"
+    EC = "potential energy centre location"
     H = "hospital"
     SC = "shopping centre"
     SCH = "school"

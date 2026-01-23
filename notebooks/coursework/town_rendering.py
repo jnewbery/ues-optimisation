@@ -39,37 +39,19 @@ def render_town_layout(
         "medium density housing": (255, 0, 255),
         "high density housing": (220, 25, 25),
         "green space": (20, 163, 58),
-        "potential energy centre": (100, 100, 100),
+        "potential energy centre location": (100, 100, 100),
         "other": (192, 192, 192),
         "hospital": (0, 204, 255),
         "shopping centre": (255, 204, 0),
         "school": (160, 70, 20),
         "office": (255, 255, 0),
     }
-    # text_color_map = {
-    #     "potential energy centre": (255, 255, 255),
-    #     "school": (20, 20, 20),
-    #     "office": (20, 20, 20),
-    # }
-    # label_map = {
-    #     "low density housing": "LD",
-    #     "medium density housing": "MD",
-    #     "high density housing": "HD",
-    #     "potential energy centre": "EC",
-    #     "hospital": "H",
-    #     "shopping centre": "SC",
-    #     "school": "SCH",
-    #     "office": "OF",
-    #     "other": "O",
-    #     "green space": "G",
-    # }
-    # default_text_color = (25, 25, 25)
 
     icon_map = {
         "low density housing": "housing-low-density.png",
         "medium density housing": "housing-med-density.png",
         "high density housing": "housing-high-density.png",
-        "potential energy centre": "energy-centre.png",
+        "potential energy centre location": "energy-centre.png",
         "hospital": "hospital.png",
         "shopping centre": "shopping-centre.png",
         "school": "school.png",
